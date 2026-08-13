@@ -23,33 +23,38 @@ const defaultCategories = [
     {
         name: "Coding Practice",
         completed: 0,
-        target: 100
+        target: 100,
+        tasks: []
     },
     {
         name: "Aptitude",
         completed: 0,
-        target: 50
+        target: 50,
+        tasks: []
     },
     {
         name: "Courses",
         completed: 0,
-        target: 10
+        target: 10,
+        tasks: []
     },
     {
         name: "Projects",
         completed: 0,
-        target: 3
+        target: 3,
+        tasks: []
     },
     {
         name: "Interview Preparation",
         completed: 0,
-        target: 20
+        target: 20,
+        tasks: []
     }
 ];
 
-let categories = JSON.parse(
-    localStorage.getItem("placementCategories")
-) || defaultCategories;
+let categories =
+    JSON.parse(localStorage.getItem("placementCategories")) ||
+    defaultCategories;
 
 categories.forEach((category) => {
 
@@ -68,6 +73,18 @@ categories.forEach((category) => {
         </div>
 
         <p class="progress-text">0%</p>
+
+        <div class="add-task">
+            <input
+                type="text"
+                class="task-input"
+                placeholder="Enter a task"
+            >
+
+            <button class="add-task-button">
+                Add Task
+            </button>
+        </div>
     `;
 
     const progressBar =
@@ -79,15 +96,26 @@ categories.forEach((category) => {
     const completionText =
         card.querySelector(".completion-text");
 
+    const taskInput =
+        card.querySelector(".task-input");
+
+    const addTaskButton =
+        card.querySelector(".add-task-button");
+
+    const taskList =
+        document.createElement("div");
+
+    taskList.classList.add("task-list");
+
     function updateProgress() {
 
-        const completedTasks = category.tasks
-            ? category.tasks.filter(
+        const completedTasks =
+            category.tasks.filter(
                 task => task.completed
-            ).length
-            : 0;
+            ).length;
 
-        category.completed = completedTasks;
+        category.completed =
+            completedTasks;
 
         const progress =
             (category.completed / category.target) * 100;
@@ -107,42 +135,95 @@ categories.forEach((category) => {
         );
     }
 
-    const taskList = document.createElement("div");
-    taskList.classList.add("task-list");
+    function renderTasks() {
 
-    (category.tasks || []).forEach((task) => {
+        taskList.innerHTML = "";
 
-        const taskElement =
-            document.createElement("label");
+        category.tasks.forEach((task) => {
 
-        taskElement.classList.add("task");
+            const taskElement =
+                document.createElement("label");
 
-        const checkbox =
-            document.createElement("input");
+            taskElement.classList.add("task");
 
-        checkbox.type = "checkbox";
-        checkbox.checked = task.completed;
+            const checkbox =
+                document.createElement("input");
 
-        const taskText =
-            document.createElement("span");
+            checkbox.type = "checkbox";
 
-        taskText.textContent = task.title;
+            checkbox.checked =
+                task.completed;
 
-        checkbox.addEventListener("change", () => {
+            const taskText =
+                document.createElement("span");
 
-            task.completed =
-                checkbox.checked;
+            taskText.textContent =
+                task.title;
+
+            checkbox.addEventListener(
+                "change",
+                () => {
+
+                    task.completed =
+                        checkbox.checked;
+
+                    updateProgress();
+                }
+            );
+
+            taskElement.appendChild(
+                checkbox
+            );
+
+            taskElement.appendChild(
+                taskText
+            );
+
+            taskList.appendChild(
+                taskElement
+            );
+        });
+    }
+
+    addTaskButton.addEventListener(
+        "click",
+        () => {
+
+            const title =
+                taskInput.value.trim();
+
+            if (title === "") {
+                return;
+            }
+
+            const newTask = {
+                title: title,
+                completed: false
+            };
+
+            category.tasks.push(newTask);
+
+            taskInput.value = "";
+
+            renderTasks();
 
             updateProgress();
-        });
+        }
+    );
 
-        taskElement.appendChild(checkbox);
-        taskElement.appendChild(taskText);
+    taskInput.addEventListener(
+        "keydown",
+        (event) => {
 
-        taskList.appendChild(taskElement);
-    });
+            if (event.key === "Enter") {
+                addTaskButton.click();
+            }
+        }
+    );
 
     card.appendChild(taskList);
+
+    renderTasks();
 
     updateProgress();
 
