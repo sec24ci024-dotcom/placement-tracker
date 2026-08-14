@@ -142,7 +142,7 @@ categories.forEach((category) => {
         category.tasks.forEach((task) => {
 
             const taskElement =
-                document.createElement("label");
+                document.createElement("div");
 
             taskElement.classList.add("task");
 
@@ -150,15 +150,25 @@ categories.forEach((category) => {
                 document.createElement("input");
 
             checkbox.type = "checkbox";
-
-            checkbox.checked =
-                task.completed;
+            checkbox.checked = task.completed;
 
             const taskText =
                 document.createElement("span");
 
             taskText.textContent =
                 task.title;
+
+            const editButton =
+                document.createElement("button");
+
+            editButton.textContent = "Edit";
+            editButton.classList.add("edit-button");
+
+            const deleteButton =
+                document.createElement("button");
+
+            deleteButton.textContent = "Delete";
+            deleteButton.classList.add("delete-button");
 
             checkbox.addEventListener(
                 "change",
@@ -167,6 +177,47 @@ categories.forEach((category) => {
                     task.completed =
                         checkbox.checked;
 
+                    updateProgress();
+                    renderTasks();
+                }
+            );
+
+            editButton.addEventListener(
+                "click",
+                () => {
+
+                    const newTitle =
+                        prompt(
+                            "Enter new task name",
+                            task.title
+                        );
+
+                    if (
+                        newTitle !== null &&
+                        newTitle.trim() !== ""
+                    ) {
+                        task.title =
+                            newTitle.trim();
+
+                        renderTasks();
+                        updateProgress();
+                    }
+                }
+            );
+
+            deleteButton.addEventListener(
+                "click",
+                () => {
+
+                    const index =
+                        category.tasks.indexOf(task);
+
+                    category.tasks.splice(
+                        index,
+                        1
+                    );
+
+                    renderTasks();
                     updateProgress();
                 }
             );
@@ -177,6 +228,14 @@ categories.forEach((category) => {
 
             taskElement.appendChild(
                 taskText
+            );
+
+            taskElement.appendChild(
+                editButton
+            );
+
+            taskElement.appendChild(
+                deleteButton
             );
 
             taskList.appendChild(
@@ -206,7 +265,6 @@ categories.forEach((category) => {
             taskInput.value = "";
 
             renderTasks();
-
             updateProgress();
         }
     );
@@ -224,7 +282,6 @@ categories.forEach((category) => {
     card.appendChild(taskList);
 
     renderTasks();
-
     updateProgress();
 
     dashboard.appendChild(card);

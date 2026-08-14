@@ -77,9 +77,8 @@ body {
 .task {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 8px 0;
-    cursor: pointer;
     border-bottom: 1px solid #eee;
 }
 
@@ -88,9 +87,31 @@ body {
     height: 16px;
 }
 
+.task span {
+    flex: 1;
+}
+
 .task input:checked + span {
     text-decoration: line-through;
     opacity: 0.5;
+}
+
+.edit-button,
+.delete-button {
+    border: none;
+    padding: 5px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.edit-button {
+    background: #f0ad4e;
+    color: white;
+}
+
+.delete-button {
+    background: #dc3545;
+    color: white;
 }
 
 @media (max-width: 900px) {
