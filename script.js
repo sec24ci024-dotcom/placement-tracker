@@ -1,5 +1,14 @@
 const dashboard = document.getElementById("dashboard");
 
+const overallProgressBar =
+    document.getElementById("overall-progress-bar");
+
+const overallProgressText =
+    document.getElementById("overall-progress-text");
+
+const overallCompletion =
+    document.getElementById("overall-completion");
+
 const defaultCategories = [
     {
         name: "DSA",
@@ -53,12 +62,40 @@ const defaultCategories = [
 ];
 
 let categories =
-    JSON.parse(localStorage.getItem("placementCategories")) ||
-    defaultCategories;
+    JSON.parse(
+        localStorage.getItem("placementCategories")
+    ) || defaultCategories;
+
+function updateOverallProgress() {
+
+    let totalCompleted = 0;
+    let totalTarget = 0;
+
+    categories.forEach((category) => {
+
+        totalCompleted += category.completed;
+        totalTarget += category.target;
+
+    });
+
+    const progress =
+        (totalCompleted / totalTarget) * 100;
+
+    overallProgressBar.style.width =
+        `${progress}%`;
+
+    overallProgressText.textContent =
+        `${progress.toFixed(0)}%`;
+
+    overallCompletion.textContent =
+        `Completed: ${totalCompleted} / ${totalTarget}`;
+}
 
 categories.forEach((category) => {
 
-    const card = document.createElement("div");
+    const card =
+        document.createElement("div");
+
     card.classList.add("category-card");
 
     card.innerHTML = `
@@ -133,6 +170,8 @@ categories.forEach((category) => {
             "placementCategories",
             JSON.stringify(categories)
         );
+
+        updateOverallProgress();
     }
 
     function renderTasks() {
@@ -150,7 +189,9 @@ categories.forEach((category) => {
                 document.createElement("input");
 
             checkbox.type = "checkbox";
-            checkbox.checked = task.completed;
+
+            checkbox.checked =
+                task.completed;
 
             const taskText =
                 document.createElement("span");
@@ -162,13 +203,19 @@ categories.forEach((category) => {
                 document.createElement("button");
 
             editButton.textContent = "Edit";
-            editButton.classList.add("edit-button");
+
+            editButton.classList.add(
+                "edit-button"
+            );
 
             const deleteButton =
                 document.createElement("button");
 
             deleteButton.textContent = "Delete";
-            deleteButton.classList.add("delete-button");
+
+            deleteButton.classList.add(
+                "delete-button"
+            );
 
             checkbox.addEventListener(
                 "change",
@@ -178,6 +225,7 @@ categories.forEach((category) => {
                         checkbox.checked;
 
                     updateProgress();
+
                     renderTasks();
                 }
             );
@@ -196,10 +244,12 @@ categories.forEach((category) => {
                         newTitle !== null &&
                         newTitle.trim() !== ""
                     ) {
+
                         task.title =
                             newTitle.trim();
 
                         renderTasks();
+
                         updateProgress();
                     }
                 }
@@ -218,6 +268,7 @@ categories.forEach((category) => {
                     );
 
                     renderTasks();
+
                     updateProgress();
                 }
             );
@@ -260,11 +311,14 @@ categories.forEach((category) => {
                 completed: false
             };
 
-            category.tasks.push(newTask);
+            category.tasks.push(
+                newTask
+            );
 
             taskInput.value = "";
 
             renderTasks();
+
             updateProgress();
         }
     );
@@ -282,7 +336,10 @@ categories.forEach((category) => {
     card.appendChild(taskList);
 
     renderTasks();
+
     updateProgress();
 
     dashboard.appendChild(card);
 });
+
+updateOverallProgress();
