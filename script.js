@@ -12,8 +12,6 @@ const overallCompletion =
 const defaultCategories = [
     {
         name: "DSA",
-        completed: 0,
-        target: 100,
         tasks: [
             {
                 title: "Two Sum",
@@ -24,40 +22,135 @@ const defaultCategories = [
                 completed: false
             },
             {
-                title: "Sliding Window",
+                title: "Valid Parentheses",
+                completed: false
+            },
+            {
+                title: "Reverse Linked List",
+                completed: false
+            },
+            {
+                title: "Maximum Subarray",
                 completed: false
             }
         ]
     },
     {
         name: "Coding Practice",
-        completed: 0,
-        target: 100,
-        tasks: []
+        tasks: [
+            {
+                title: "Arrays",
+                completed: false
+            },
+            {
+                title: "Strings",
+                completed: false
+            },
+            {
+                title: "HashMap",
+                completed: false
+            },
+            {
+                title: "Two Pointer",
+                completed: false
+            },
+            {
+                title: "Sliding Window",
+                completed: false
+            }
+        ]
     },
     {
         name: "Aptitude",
-        completed: 0,
-        target: 50,
-        tasks: []
+        tasks: [
+            {
+                title: "Percentages",
+                completed: false
+            },
+            {
+                title: "Profit and Loss",
+                completed: false
+            },
+            {
+                title: "Time and Work",
+                completed: false
+            },
+            {
+                title: "Time Speed Distance",
+                completed: false
+            },
+            {
+                title: "Probability",
+                completed: false
+            }
+        ]
     },
     {
         name: "Courses",
-        completed: 0,
-        target: 10,
-        tasks: []
+        tasks: [
+            {
+                title: "JavaScript Fundamentals",
+                completed: false
+            },
+            {
+                title: "React",
+                completed: false
+            },
+            {
+                title: "Node.js",
+                completed: false
+            },
+            {
+                title: "SQL",
+                completed: false
+            },
+            {
+                title: "AWS",
+                completed: false
+            }
+        ]
     },
     {
         name: "Projects",
-        completed: 0,
-        target: 3,
-        tasks: []
+        tasks: [
+            {
+                title: "Placement Tracker",
+                completed: false
+            },
+            {
+                title: "GenAI Project",
+                completed: false
+            },
+            {
+                title: "IoT AI Cloud Project",
+                completed: false
+            }
+        ]
     },
     {
         name: "Interview Preparation",
-        completed: 0,
-        target: 20,
-        tasks: []
+        tasks: [
+            {
+                title: "Tell me about yourself",
+                completed: false
+            },
+            {
+                title: "Explain my projects",
+                completed: false
+            },
+            {
+                title: "OOP Concepts",
+                completed: false
+            },
+            {
+                title: "DBMS Questions",
+                completed: false
+            },
+            {
+                title: "HR Questions",
+                completed: false
+            }
+        ]
     }
 ];
 
@@ -69,17 +162,21 @@ let categories =
 function updateOverallProgress() {
 
     let totalCompleted = 0;
-    let totalTarget = 0;
+    let totalTasks = 0;
 
     categories.forEach((category) => {
 
-        totalCompleted += category.completed;
-        totalTarget += category.target;
+        totalCompleted += category.tasks.filter(
+            task => task.completed
+        ).length;
 
+        totalTasks += category.tasks.length;
     });
 
     const progress =
-        (totalCompleted / totalTarget) * 100;
+        totalTasks === 0
+            ? 0
+            : (totalCompleted / totalTasks) * 100;
 
     overallProgressBar.style.width =
         `${progress}%`;
@@ -88,7 +185,7 @@ function updateOverallProgress() {
         `${progress.toFixed(0)}%`;
 
     overallCompletion.textContent =
-        `Completed: ${totalCompleted} / ${totalTarget}`;
+        `Completed: ${totalCompleted} / ${totalTasks}`;
 }
 
 categories.forEach((category) => {
@@ -102,7 +199,7 @@ categories.forEach((category) => {
         <h2>${category.name}</h2>
 
         <p class="completion-text">
-            Completed: ${category.completed} / ${category.target}
+            Completed: 0 / 0
         </p>
 
         <div class="progress-container">
@@ -112,6 +209,7 @@ categories.forEach((category) => {
         <p class="progress-text">0%</p>
 
         <div class="add-task">
+
             <input
                 type="text"
                 class="task-input"
@@ -121,6 +219,7 @@ categories.forEach((category) => {
             <button class="add-task-button">
                 Add Task
             </button>
+
         </div>
     `;
 
@@ -151,11 +250,13 @@ categories.forEach((category) => {
                 task => task.completed
             ).length;
 
-        category.completed =
-            completedTasks;
+        const totalTasks =
+            category.tasks.length;
 
         const progress =
-            (category.completed / category.target) * 100;
+            totalTasks === 0
+                ? 0
+                : (completedTasks / totalTasks) * 100;
 
         progressBar.style.width =
             `${progress}%`;
@@ -164,7 +265,7 @@ categories.forEach((category) => {
             `${progress.toFixed(0)}%`;
 
         completionText.textContent =
-            `Completed: ${category.completed} / ${category.target}`;
+            `Completed: ${completedTasks} / ${totalTasks}`;
 
         localStorage.setItem(
             "placementCategories",
@@ -202,7 +303,8 @@ categories.forEach((category) => {
             const editButton =
                 document.createElement("button");
 
-            editButton.textContent = "Edit";
+            editButton.textContent =
+                "Edit";
 
             editButton.classList.add(
                 "edit-button"
@@ -211,7 +313,8 @@ categories.forEach((category) => {
             const deleteButton =
                 document.createElement("button");
 
-            deleteButton.textContent = "Delete";
+            deleteButton.textContent =
+                "Delete";
 
             deleteButton.classList.add(
                 "delete-button"
@@ -306,14 +409,10 @@ categories.forEach((category) => {
                 return;
             }
 
-            const newTask = {
+            category.tasks.push({
                 title: title,
                 completed: false
-            };
-
-            category.tasks.push(
-                newTask
-            );
+            });
 
             taskInput.value = "";
 
