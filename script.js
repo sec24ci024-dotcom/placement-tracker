@@ -163,10 +163,40 @@ const defaultCategories = [
     }
 ];
 
-let categories =
-    JSON.parse(
-        localStorage.getItem("placementCategories")
-    ) || defaultCategories;
+function loadData() {
+
+    const savedData =
+        localStorage.getItem("placementCategories");
+
+    if (savedData) {
+        return JSON.parse(savedData);
+    }
+
+    return defaultCategories;
+}
+
+let categories = loadData();
+
+function saveData() {
+    localStorage.setItem(
+        "placementCategories",
+        JSON.stringify(categories)
+    );
+}
+
+function calculateProgress(tasks) {
+
+    if (tasks.length === 0) {
+        return 0;
+    }
+
+    const completedTasks =
+        tasks.filter(
+            task => task.completed
+        ).length;
+
+    return (completedTasks / tasks.length) * 100;
+}
 
 function updateOverallProgress() {
 
@@ -183,10 +213,14 @@ function updateOverallProgress() {
 
     });
 
+    const allTasks = [];
+
+    categories.forEach((category) => {
+        allTasks.push(...category.tasks);
+    });
+
     const progress =
-        totalTasks === 0
-            ? 0
-            : (totalCompleted / totalTasks) * 100;
+        calculateProgress(allTasks);
 
     overallProgressBar.style.width =
         `${progress}%`;
@@ -292,9 +326,7 @@ categories.forEach((category) => {
             category.tasks.length;
 
         const progress =
-            totalTasks === 0
-                ? 0
-                : (completedTasks / totalTasks) * 100;
+            calculateProgress(category.tasks);
 
         progressBar.style.width =
             `${progress}%`;
@@ -305,10 +337,7 @@ categories.forEach((category) => {
         completionText.textContent =
             `Completed: ${completedTasks} / ${totalTasks}`;
 
-        localStorage.setItem(
-            "placementCategories",
-            JSON.stringify(categories)
-        );
+        saveData();
 
         updateOverallProgress();
         updateStatistics();
