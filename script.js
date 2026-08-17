@@ -9,6 +9,15 @@ const overallProgressText =
 const overallCompletion =
     document.getElementById("overall-completion");
 
+const totalTasksElement =
+    document.getElementById("total-tasks");
+
+const completedTasksElement =
+    document.getElementById("completed-tasks");
+
+const pendingTasksElement =
+    document.getElementById("pending-tasks");
+
 const defaultCategories = [
     {
         name: "DSA",
@@ -171,6 +180,7 @@ function updateOverallProgress() {
         ).length;
 
         totalTasks += category.tasks.length;
+
     });
 
     const progress =
@@ -186,6 +196,34 @@ function updateOverallProgress() {
 
     overallCompletion.textContent =
         `Completed: ${totalCompleted} / ${totalTasks}`;
+}
+
+function updateStatistics() {
+
+    let totalTasks = 0;
+    let completedTasks = 0;
+
+    categories.forEach((category) => {
+
+        totalTasks += category.tasks.length;
+
+        completedTasks += category.tasks.filter(
+            task => task.completed
+        ).length;
+
+    });
+
+    const pendingTasks =
+        totalTasks - completedTasks;
+
+    totalTasksElement.textContent =
+        totalTasks;
+
+    completedTasksElement.textContent =
+        completedTasks;
+
+    pendingTasksElement.textContent =
+        pendingTasks;
 }
 
 categories.forEach((category) => {
@@ -273,6 +311,7 @@ categories.forEach((category) => {
         );
 
         updateOverallProgress();
+        updateStatistics();
     }
 
     function renderTasks() {
@@ -442,3 +481,4 @@ categories.forEach((category) => {
 });
 
 updateOverallProgress();
+updateStatistics();
