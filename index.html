@@ -7,46 +7,81 @@
 
 <body>
 
-    <h1>Placement Preparation Tracker</h1>
+    <header class="header">
 
-    <p>Track your placement preparation progress.</p>
+        <div>
+            <h1>Placement Preparation Tracker</h1>
 
-    <section class="overall-progress">
-
-        <h2>Overall Placement Progress</h2>
-
-        <p id="overall-completion">
-            Completed: 0 / 0
-        </p>
-
-        <div class="overall-progress-container">
-            <div id="overall-progress-bar"></div>
+            <p>
+                Track your progress and become placement ready.
+            </p>
         </div>
 
-        <p id="overall-progress-text">0%</p>
+    </header>
 
-    </section>
+    <main>
 
-    <section class="statistics">
+        <section class="overall-progress">
 
-        <div class="stat-card">
-            <h3>Total Tasks</h3>
-            <p id="total-tasks">0</p>
-        </div>
+            <h2>Overall Progress</h2>
 
-        <div class="stat-card">
-            <h3>Completed</h3>
-            <p id="completed-tasks">0</p>
-        </div>
+            <p id="overall-completion">
+                Completed: 0 / 0
+            </p>
 
-        <div class="stat-card">
-            <h3>Pending</h3>
-            <p id="pending-tasks">0</p>
-        </div>
+            <div class="overall-progress-container">
+                <div id="overall-progress-bar"></div>
+            </div>
 
-    </section>
+            <p id="overall-progress-text">0%</p>
 
-    <div id="dashboard"></div>
+        </section>
+
+        <section class="statistics">
+
+            <div class="stat-card">
+
+                <span class="stat-label">
+                    Total Tasks
+                </span>
+
+                <p id="total-tasks">0</p>
+
+            </div>
+
+            <div class="stat-card">
+
+                <span class="stat-label">
+                    Completed
+                </span>
+
+                <p id="completed-tasks">0</p>
+
+            </div>
+
+            <div class="stat-card">
+
+                <span class="stat-label">
+                    Pending
+                </span>
+
+                <p id="pending-tasks">0</p>
+
+            </div>
+
+        </section>
+
+        <section>
+
+            <h2 class="section-title">
+                Preparation Categories
+            </h2>
+
+            <div id="dashboard"></div>
+
+        </section>
+
+    </main>
 
     <script src="script.js"></script>
 
