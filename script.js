@@ -178,6 +178,7 @@ function loadData() {
 let categories = loadData();
 
 function saveData() {
+
     localStorage.setItem(
         "placementCategories",
         JSON.stringify(categories)
@@ -216,7 +217,11 @@ function updateOverallProgress() {
     const allTasks = [];
 
     categories.forEach((category) => {
-        allTasks.push(...category.tasks);
+
+        allTasks.push(
+            ...category.tasks
+        );
+
     });
 
     const progress =
@@ -280,6 +285,32 @@ categories.forEach((category) => {
 
         <p class="progress-text">0%</p>
 
+        <div class="task-controls">
+
+            <input
+                type="text"
+                class="search-input"
+                placeholder="Search tasks..."
+            >
+
+            <select class="filter-select">
+
+                <option value="all">
+                    All
+                </option>
+
+                <option value="completed">
+                    Completed
+                </option>
+
+                <option value="pending">
+                    Pending
+                </option>
+
+            </select>
+
+        </div>
+
         <div class="add-task">
 
             <input
@@ -304,6 +335,12 @@ categories.forEach((category) => {
     const completionText =
         card.querySelector(".completion-text");
 
+    const searchInput =
+        card.querySelector(".search-input");
+
+    const filterSelect =
+        card.querySelector(".filter-select");
+
     const taskInput =
         card.querySelector(".task-input");
 
@@ -314,6 +351,10 @@ categories.forEach((category) => {
         document.createElement("div");
 
     taskList.classList.add("task-list");
+
+    let searchText = "";
+
+    let filterValue = "all";
 
     function updateProgress() {
 
@@ -326,7 +367,9 @@ categories.forEach((category) => {
             category.tasks.length;
 
         const progress =
-            calculateProgress(category.tasks);
+            calculateProgress(
+                category.tasks
+            );
 
         progressBar.style.width =
             `${progress}%`;
@@ -340,6 +383,7 @@ categories.forEach((category) => {
         saveData();
 
         updateOverallProgress();
+
         updateStatistics();
     }
 
@@ -347,7 +391,32 @@ categories.forEach((category) => {
 
         taskList.innerHTML = "";
 
-        category.tasks.forEach((task) => {
+        const filteredTasks =
+            category.tasks.filter((task) => {
+
+                const matchesSearch =
+                    task.title
+                        .toLowerCase()
+                        .includes(searchText);
+
+                const matchesFilter =
+                    filterValue === "all" ||
+                    (
+                        filterValue === "completed" &&
+                        task.completed
+                    ) ||
+                    (
+                        filterValue === "pending" &&
+                        !task.completed
+                    );
+
+                return (
+                    matchesSearch &&
+                    matchesFilter
+                );
+            });
+
+        filteredTasks.forEach((task) => {
 
             const taskElement =
                 document.createElement("div");
@@ -419,9 +488,9 @@ categories.forEach((category) => {
                         task.title =
                             newTitle.trim();
 
-                        renderTasks();
+                        saveData();
 
-                        updateProgress();
+                        renderTasks();
                     }
                 }
             );
@@ -431,12 +500,16 @@ categories.forEach((category) => {
                 () => {
 
                     const index =
-                        category.tasks.indexOf(task);
+                        category.tasks.indexOf(
+                            task
+                        );
 
                     category.tasks.splice(
                         index,
                         1
                     );
+
+                    saveData();
 
                     renderTasks();
 
@@ -466,6 +539,30 @@ categories.forEach((category) => {
         });
     }
 
+    searchInput.addEventListener(
+        "input",
+        () => {
+
+            searchText =
+                searchInput.value
+                    .toLowerCase()
+                    .trim();
+
+            renderTasks();
+        }
+    );
+
+    filterSelect.addEventListener(
+        "change",
+        () => {
+
+            filterValue =
+                filterSelect.value;
+
+            renderTasks();
+        }
+    );
+
     addTaskButton.addEventListener(
         "click",
         () => {
@@ -483,6 +580,8 @@ categories.forEach((category) => {
             });
 
             taskInput.value = "";
+
+            saveData();
 
             renderTasks();
 
@@ -502,12 +601,13 @@ categories.forEach((category) => {
 
     card.appendChild(taskList);
 
+    dashboard.appendChild(card);
+
     renderTasks();
 
     updateProgress();
-
-    dashboard.appendChild(card);
 });
 
 updateOverallProgress();
+
 updateStatistics();
