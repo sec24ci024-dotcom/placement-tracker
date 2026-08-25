@@ -5,67 +5,59 @@ const initialCategories = [
   {
     id: 1,
     name: "DSA",
-    icon: "💻",
     target: 100,
     tasks: [
-      { id: 1, name: "Two Sum", completed: true },
-      { id: 2, name: "Binary Search", completed: true },
-      { id: 3, name: "Valid Parentheses", completed: false },
-      { id: 4, name: "Reverse Linked List", completed: false },
-      { id: 5, name: "Maximum Subarray", completed: false },
+      { id: 101, name: "Two Sum", completed: true },
+      { id: 102, name: "Binary Search", completed: true },
+      { id: 103, name: "Valid Parentheses", completed: false },
+      { id: 104, name: "Reverse Linked List", completed: false },
+      { id: 105, name: "Maximum Subarray", completed: false },
     ],
   },
   {
     id: 2,
     name: "Coding Practice",
-    icon: "⌨️",
     target: 100,
     tasks: [
-      { id: 6, name: "Arrays", completed: true },
-      { id: 7, name: "Strings", completed: false },
-      { id: 8, name: "HashMap", completed: false },
+      { id: 201, name: "Arrays", completed: true },
+      { id: 202, name: "Strings", completed: false },
+      { id: 203, name: "HashMap", completed: false },
     ],
   },
   {
     id: 3,
     name: "Aptitude",
-    icon: "🧠",
     target: 50,
     tasks: [
-      { id: 9, name: "Profit and Loss", completed: false },
-      { id: 10, name: "Time and Work", completed: false },
-      { id: 11, name: "Height and Distance", completed: false },
+      { id: 301, name: "Profit and Loss", completed: false },
+      { id: 302, name: "Time and Work", completed: false },
     ],
   },
   {
     id: 4,
     name: "Courses",
-    icon: "📚",
     target: 10,
     tasks: [
-      { id: 12, name: "JavaScript Course", completed: true },
-      { id: 13, name: "React Course", completed: false },
+      { id: 401, name: "JavaScript Basics", completed: true },
+      { id: 402, name: "React Fundamentals", completed: false },
     ],
   },
   {
     id: 5,
     name: "Projects",
-    icon: "🚀",
     target: 3,
     tasks: [
-      { id: 14, name: "Placement Tracker", completed: true },
-      { id: 15, name: "AI Project", completed: false },
+      { id: 501, name: "Placement Tracker", completed: true },
+      { id: 502, name: "AI Project", completed: false },
     ],
   },
   {
     id: 6,
     name: "Interview Preparation",
-    icon: "🎯",
     target: 20,
     tasks: [
-      { id: 16, name: "OOP Questions", completed: false },
-      { id: 17, name: "DBMS Questions", completed: false },
-      { id: 18, name: "HR Questions", completed: false },
+      { id: 601, name: "OOP Questions", completed: false },
+      { id: 602, name: "DBMS Questions", completed: false },
     ],
   },
 ];
@@ -78,9 +70,8 @@ function App() {
   });
 
   const [search, setSearch] = useState("");
-  const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem("placementDarkMode") === "true";
-  });
+  const [filter, setFilter] = useState("all");
+  const [newTasks, setNewTasks] = useState({});
 
   useEffect(() => {
     localStorage.setItem(
@@ -89,22 +80,17 @@ function App() {
     );
   }, [categories]);
 
-  useEffect(() => {
-    localStorage.setItem(
-      "placementDarkMode",
-      darkMode
-    );
-  }, [darkMode]);
+  const totalTasks = categories.reduce(
+    (total, category) => total + category.tasks.length,
+    0
+  );
 
-  const allTasks = useMemo(() => {
-    return categories.flatMap((category) => category.tasks);
-  }, [categories]);
-
-  const totalTasks = allTasks.length;
-
-  const completedTasks = allTasks.filter(
-    (task) => task.completed
-  ).length;
+  const completedTasks = categories.reduce(
+    (total, category) =>
+      total +
+      category.tasks.filter((task) => task.completed).length,
+    0
+  );
 
   const pendingTasks = totalTasks - completedTasks;
 
@@ -113,431 +99,329 @@ function App() {
       ? 0
       : Math.round((completedTasks / totalTasks) * 100);
 
-  const level =
-    overallProgress >= 90
-      ? "Placement Ready"
-      : overallProgress >= 75
-      ? "Advanced"
-      : overallProgress >= 50
-      ? "Intermediate"
-      : overallProgress >= 25
-      ? "Getting Started"
-      : "Beginner";
+  const filteredCategories = useMemo(() => {
+    return categories.map((category) => ({
+      ...category,
+      tasks: category.tasks.filter((task) => {
+        const matchesSearch = task.name
+          .toLowerCase()
+          .includes(search.toLowerCase());
 
-  const badge =
-    overallProgress >= 90
-      ? "🏆"
-      : overallProgress >= 75
-      ? "🔥"
-      : overallProgress >= 50
-      ? "⭐"
-      : "🌱";
+        const matchesFilter =
+          filter === "all" ||
+          (filter === "completed" && task.completed) ||
+          (filter === "pending" && !task.completed);
 
-  const today = new Date().toLocaleDateString(
-    "en-IN",
-    {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }
-  );
+        return matchesSearch && matchesFilter;
+      }),
+    }));
+  }, [categories, search, filter]);
 
   const toggleTask = (categoryId, taskId) => {
     setCategories((current) =>
-      current.map((category) => {
-        if (category.id !== categoryId) {
-          return category;
-        }
-
-        return {
-          ...category,
-          tasks: category.tasks.map((task) =>
-            task.id === taskId
-              ? {
-                  ...task,
-                  completed: !task.completed,
-                }
-              : task
-          ),
-        };
-      })
-    );
-  };
-
-  const addTask = (categoryId, taskName) => {
-    if (!taskName.trim()) {
-      return;
-    }
-
-    setCategories((current) =>
-      current.map((category) => {
-        if (category.id !== categoryId) {
-          return category;
-        }
-
-        return {
-          ...category,
-          tasks: [
-            ...category.tasks,
-            {
-              id: Date.now(),
-              name: taskName.trim(),
-              completed: false,
-            },
-          ],
-        };
-      })
+      current.map((category) =>
+        category.id === categoryId
+          ? {
+              ...category,
+              tasks: category.tasks.map((task) =>
+                task.id === taskId
+                  ? { ...task, completed: !task.completed }
+                  : task
+              ),
+            }
+          : category
+      )
     );
   };
 
   const deleteTask = (categoryId, taskId) => {
     setCategories((current) =>
-      current.map((category) => {
-        if (category.id !== categoryId) {
-          return category;
-        }
-
-        return {
-          ...category,
-          tasks: category.tasks.filter(
-            (task) => task.id !== taskId
-          ),
-        };
-      })
+      current.map((category) =>
+        category.id === categoryId
+          ? {
+              ...category,
+              tasks: category.tasks.filter(
+                (task) => task.id !== taskId
+              ),
+            }
+          : category
+      )
     );
   };
 
-  const resetProgress = () => {
-    const confirmed = window.confirm(
-      "Are you sure you want to reset all progress?"
+  const handleTaskInput = (categoryId, value) => {
+    setNewTasks((current) => ({
+      ...current,
+      [categoryId]: value,
+    }));
+  };
+
+  const addTask = (categoryId) => {
+    const taskName = newTasks[categoryId]?.trim();
+
+    if (!taskName) return;
+
+    setCategories((current) =>
+      current.map((category) =>
+        category.id === categoryId
+          ? {
+              ...category,
+              tasks: [
+                ...category.tasks,
+                {
+                  id: Date.now(),
+                  name: taskName,
+                  completed: false,
+                },
+              ],
+            }
+          : category
+      )
     );
 
-    if (!confirmed) {
-      return;
-    }
+    setNewTasks((current) => ({
+      ...current,
+      [categoryId]: "",
+    }));
+  };
 
-    setCategories(initialCategories);
+  const clearCompleted = () => {
+    setCategories((current) =>
+      current.map((category) => ({
+        ...category,
+        tasks: category.tasks.filter((task) => !task.completed),
+      }))
+    );
   };
 
   return (
-    <div className={darkMode ? "app dark" : "app"}>
+    <div className="app">
       <header className="header">
-        <div className="header-content">
-          <div>
-            <div className="brand">
-              <span className="brand-icon">🚀</span>
+        <div>
+          <p className="eyebrow">PLACEMENT PREPARATION</p>
 
-              <div>
-                <h1>Placement Tracker</h1>
-                <p>Build skills. Track progress. Get placed.</p>
-              </div>
-            </div>
+          <h1>Placement Tracker</h1>
 
-            <div className="date">
-              📅 {today}
-            </div>
-          </div>
+          <p>
+            Track your coding, aptitude, courses, projects and
+            interview preparation.
+          </p>
+        </div>
 
-          <button
-            className="theme-button"
-            onClick={() => setDarkMode(!darkMode)}
-          >
-            {darkMode ? "☀️ Light" : "🌙 Dark"}
-          </button>
+        <div className="header-progress">
+          <strong>{overallProgress}%</strong>
+          <span>Overall Progress</span>
         </div>
       </header>
 
       <main>
-        <section className="welcome">
-          <div>
-            <span className="welcome-label">
-              YOUR PLACEMENT JOURNEY
-            </span>
-
-            <h2>
-              Keep pushing,
-              <span> you are getting closer! 💪</span>
-            </h2>
-
-            <p>
-              Stay consistent and complete your preparation
-              tasks every day.
-            </p>
-          </div>
-
-          <div className="level-card">
-            <div className="level-badge">
-              {badge}
-            </div>
-
-            <div>
-              <small>Current Level</small>
-              <strong>{level}</strong>
-            </div>
-          </div>
-        </section>
-
         <section className="overall-progress">
-          <div className="progress-heading">
+          <div className="section-heading">
             <div>
-              <span className="small-label">
-                OVERALL PROGRESS
-              </span>
-
-              <h2>{overallProgress}%</h2>
+              <p className="small-label">YOUR PROGRESS</p>
+              <h2>Overall Preparation</h2>
             </div>
 
-            <div className="progress-info">
-              <strong>
-                {completedTasks}/{totalTasks}
-              </strong>
-              <span>tasks completed</span>
-            </div>
+            <span className="progress-percentage">
+              {overallProgress}%
+            </span>
           </div>
 
           <div className="overall-progress-container">
             <div
               className="overall-progress-bar"
-              style={{
-                width: `${overallProgress}%`,
-              }}
-            ></div>
+              style={{ width: `${overallProgress}%` }}
+            />
           </div>
 
-          <div className="progress-footer">
-            <span>
-              {overallProgress === 100
-                ? "🎉 All tasks completed!"
-                : `${pendingTasks} tasks remaining`}
-            </span>
-
-            <span>
-              {overallProgress}% complete
-            </span>
-          </div>
+          <p className="progress-message">
+            {overallProgress === 100
+              ? "Excellent! You are fully prepared."
+              : overallProgress >= 70
+              ? "Great progress! Keep pushing."
+              : overallProgress >= 40
+              ? "Good start. Stay consistent."
+              : "Start completing tasks to build momentum."}
+          </p>
         </section>
 
         <section className="statistics">
           <div className="stat-card">
-            <div className="stat-icon blue">
-              📋
-            </div>
-
-            <div>
-              <span>Total Tasks</span>
-              <strong>{totalTasks}</strong>
-            </div>
+            <span>Total Tasks</span>
+            <strong>{totalTasks}</strong>
+            <small>All categories</small>
           </div>
 
-          <div className="stat-card">
-            <div className="stat-icon green">
-              ✅
-            </div>
-
-            <div>
-              <span>Completed</span>
-              <strong>{completedTasks}</strong>
-            </div>
+          <div className="stat-card success-card">
+            <span>Completed</span>
+            <strong>{completedTasks}</strong>
+            <small>Tasks finished</small>
           </div>
 
-          <div className="stat-card">
-            <div className="stat-icon orange">
-              ⏳
-            </div>
-
-            <div>
-              <span>Pending</span>
-              <strong>{pendingTasks}</strong>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-icon purple">
-              📂
-            </div>
-
-            <div>
-              <span>Categories</span>
-              <strong>{categories.length}</strong>
-            </div>
+          <div className="stat-card warning-card">
+            <span>Pending</span>
+            <strong>{pendingTasks}</strong>
+            <small>Tasks remaining</small>
           </div>
         </section>
 
-        <section className="achievement">
-          <div className="achievement-icon">
-            {badge}
-          </div>
-
-          <div className="achievement-content">
-            <span>ACHIEVEMENT STATUS</span>
-
-            <h3>
-              {overallProgress >= 75
-                ? "Excellent progress! 🔥"
-                : overallProgress >= 50
-                ? "You're halfway there! 🚀"
-                : "Your journey has started! 🌱"}
-            </h3>
-
-            <p>
-              {overallProgress >= 75
-                ? "Keep this momentum going and finish strong."
-                : "Complete more tasks to unlock higher levels."}
-            </p>
-          </div>
-
-          <div className="streak">
-            <strong>🔥 1</strong>
-            <span>Day Streak</span>
-          </div>
-        </section>
-
-        <section className="search-section">
-          <div className="section-heading">
-            <div>
-              <span className="small-label">
-                PREPARATION PLAN
-              </span>
-
-              <h2>Your Tasks</h2>
-            </div>
-
-            <button
-              className="reset-button"
-              onClick={resetProgress}
-            >
-              Reset Progress
-            </button>
-          </div>
-
+        <section className="controls">
           <div className="search-container">
-            <span className="search-icon">
-              🔍
-            </span>
+            <span>⌕</span>
 
             <input
               type="text"
               placeholder="Search tasks..."
               value={search}
-              onChange={(e) =>
-                setSearch(e.target.value)
-              }
+              onChange={(e) => setSearch(e.target.value)}
             />
-
-            {search && (
-              <button
-                className="clear-search"
-                onClick={() => setSearch("")}
-              >
-                ×
-              </button>
-            )}
           </div>
+
+          <div className="filter-buttons">
+            <button
+              className={filter === "all" ? "active" : ""}
+              onClick={() => setFilter("all")}
+            >
+              All
+            </button>
+
+            <button
+              className={filter === "pending" ? "active" : ""}
+              onClick={() => setFilter("pending")}
+            >
+              Pending
+            </button>
+
+            <button
+              className={filter === "completed" ? "active" : ""}
+              onClick={() => setFilter("completed")}
+            >
+              Completed
+            </button>
+          </div>
+
+          <button className="clear-button" onClick={clearCompleted}>
+            Clear Completed
+          </button>
         </section>
 
+        <div className="section-title-row">
+          <div>
+            <p className="small-label">PREPARATION AREAS</p>
+            <h2 className="section-title">Your Categories</h2>
+          </div>
+
+          <span className="category-count">
+            {categories.length} Categories
+          </span>
+        </div>
+
         <section className="dashboard">
-          {categories.map((category) => {
-            const completed = category.tasks.filter(
+          {filteredCategories.map((category) => {
+            const actualCompleted = category.tasks.filter(
               (task) => task.completed
             ).length;
 
-            const total = category.tasks.length;
+            const allTasks =
+              categories.find((item) => item.id === category.id)
+                ?.tasks || [];
+
+            const completedCount = allTasks.filter(
+              (task) => task.completed
+            ).length;
 
             const progress =
-              total === 0
-                ? 0
-                : Math.round(
-                    (completed / total) * 100
-                  );
-
-            const filteredTasks =
-              category.tasks.filter((task) =>
-                task.name
-                  .toLowerCase()
-                  .includes(search.toLowerCase())
-              );
+              category.target > 0
+                ? Math.min(
+                    100,
+                    Math.round(
+                      (completedCount / category.target) * 100
+                    )
+                  )
+                : 0;
 
             return (
-              <div
-                className="category-card"
-                key={category.id}
-              >
+              <div className="category-card" key={category.id}>
                 <div className="category-header">
-                  <div className="category-title">
-                    <div className="category-icon">
-                      {category.icon}
-                    </div>
+                  <div>
+                    <h2>{category.name}</h2>
 
-                    <div>
-                      <h2>{category.name}</h2>
-
-                      <p>
-                        {completed} of {total} completed
-                      </p>
-                    </div>
+                    <p>
+                      {completedCount} completed / {category.target} target
+                    </p>
                   </div>
 
-                  <div className="category-percentage">
-                    {progress}%
+                  <div className="category-icon">
+                    {category.name.charAt(0)}
                   </div>
                 </div>
 
                 <div className="progress-container">
                   <div
                     className="progress-bar"
-                    style={{
-                      width: `${progress}%`,
-                    }}
-                  ></div>
+                    style={{ width: `${progress}%` }}
+                  />
                 </div>
 
-                <AddTask
-                  onAdd={(taskName) =>
-                    addTask(
-                      category.id,
-                      taskName
-                    )
-                  }
-                />
+                <div className="category-progress">
+                  <span>{progress}% complete</span>
+                  <span>
+                    {completedCount}/{category.target}
+                  </span>
+                </div>
+
+                <div className="add-task">
+                  <input
+                    type="text"
+                    placeholder={`Add ${category.name} task...`}
+                    value={newTasks[category.id] || ""}
+                    onChange={(e) =>
+                      handleTaskInput(category.id, e.target.value)
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        addTask(category.id);
+                      }
+                    }}
+                  />
+
+                  <button
+                    onClick={() => addTask(category.id)}
+                  >
+                    +
+                  </button>
+                </div>
 
                 <div className="task-list">
-                  {filteredTasks.length === 0 ? (
+                  {category.tasks.length === 0 ? (
                     <div className="empty-state">
-                      <span>🔎</span>
-                      <p>No matching tasks</p>
+                      No tasks found.
                     </div>
                   ) : (
-                    filteredTasks.map((task) => (
-                      <div
-                        className={
-                          task.completed
-                            ? "task completed"
-                            : "task"
-                        }
-                        key={task.id}
-                      >
+                    category.tasks.map((task) => (
+                      <div className="task" key={task.id}>
                         <input
                           type="checkbox"
                           checked={task.completed}
                           onChange={() =>
-                            toggleTask(
-                              category.id,
-                              task.id
-                            )
+                            toggleTask(category.id, task.id)
                           }
                         />
 
-                        <span>{task.name}</span>
+                        <span
+                          className={
+                            task.completed ? "completed" : ""
+                          }
+                        >
+                          {task.name}
+                        </span>
 
                         <button
                           className="delete"
                           onClick={() =>
-                            deleteTask(
-                              category.id,
-                              task.id
-                            )
+                            deleteTask(category.id, task.id)
                           }
+                          title="Delete task"
                         >
                           ×
                         </button>
@@ -545,6 +429,13 @@ function App() {
                     ))
                   )}
                 </div>
+
+                {search || filter !== "all" ? (
+                  <p className="filtered-info">
+                    Showing {actualCompleted} completed task
+                    {actualCompleted !== 1 ? "s" : ""}.
+                  </p>
+                ) : null}
               </div>
             );
           })}
@@ -552,46 +443,8 @@ function App() {
       </main>
 
       <footer>
-        <p>
-          Placement Tracker • Keep learning. Keep building.
-          Keep growing. 🚀
-        </p>
+        <p>Placement Tracker • Keep learning. Keep building. 🚀</p>
       </footer>
-    </div>
-  );
-}
-
-function AddTask({ onAdd }) {
-  const [taskName, setTaskName] = useState("");
-
-  const handleSubmit = () => {
-    if (!taskName.trim()) {
-      return;
-    }
-
-    onAdd(taskName);
-    setTaskName("");
-  };
-
-  return (
-    <div className="add-task">
-      <input
-        type="text"
-        placeholder="Add a new task..."
-        value={taskName}
-        onChange={(e) =>
-          setTaskName(e.target.value)
-        }
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            handleSubmit();
-          }
-        }}
-      />
-
-      <button onClick={handleSubmit}>
-        + Add
-      </button>
     </div>
   );
 }
