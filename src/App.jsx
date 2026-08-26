@@ -74,6 +74,15 @@ function App() {
   const [newTasks, setNewTasks] = useState({});
 
   useEffect(() => {
+  fetch("http://localhost:5000/api/tasks")
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Tasks from backend:", data);
+    })
+    .catch((error) => console.error(error));
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem(
       "placementCategories",
       JSON.stringify(categories)
