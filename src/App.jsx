@@ -6,88 +6,76 @@ const initialCategories = [
     id: 1,
     name: "DSA",
     target: 100,
-    tasks: [
-      { id: 101, name: "Two Sum", completed: true },
-      { id: 102, name: "Binary Search", completed: true },
-      { id: 103, name: "Valid Parentheses", completed: false },
-      { id: 104, name: "Reverse Linked List", completed: false },
-      { id: 105, name: "Maximum Subarray", completed: false },
-    ],
+    tasks: [],
   },
   {
     id: 2,
     name: "Coding Practice",
     target: 100,
-    tasks: [
-      { id: 201, name: "Arrays", completed: true },
-      { id: 202, name: "Strings", completed: false },
-      { id: 203, name: "HashMap", completed: false },
-    ],
+    tasks: [],
   },
   {
     id: 3,
     name: "Aptitude",
     target: 50,
-    tasks: [
-      { id: 301, name: "Profit and Loss", completed: false },
-      { id: 302, name: "Time and Work", completed: false },
-    ],
+    tasks: [],
   },
   {
     id: 4,
     name: "Courses",
     target: 10,
-    tasks: [
-      { id: 401, name: "JavaScript Basics", completed: true },
-      { id: 402, name: "React Fundamentals", completed: false },
-    ],
+    tasks: [],
   },
   {
     id: 5,
     name: "Projects",
     target: 3,
-    tasks: [
-      { id: 501, name: "Placement Tracker", completed: true },
-      { id: 502, name: "AI Project", completed: false },
-    ],
+    tasks: [],
   },
   {
     id: 6,
     name: "Interview Preparation",
     target: 20,
-    tasks: [
-      { id: 601, name: "OOP Questions", completed: false },
-      { id: 602, name: "DBMS Questions", completed: false },
-    ],
+    tasks: [],
   },
 ];
 
 function App() {
-  const [categories, setCategories] = useState(() => {
-    const saved = localStorage.getItem("placementCategories");
-
-    return saved ? JSON.parse(saved) : initialCategories;
-  });
-
+  const [categories, setCategories] = useState(initialCategories);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [newTasks, setNewTasks] = useState({});
 
+  // Load tasks from backend
   useEffect(() => {
-  fetch("http://localhost:5000/api/tasks")
-    .then((response) => response.json())
-    .then((data) => {
-      console.log("Tasks from backend:", data);
-    })
-    .catch((error) => console.error(error));
-  }, []);
+    fetch("http://localhost:5000/api/tasks")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Failed to fetch tasks");
+        }
 
-  useEffect(() => {
-    localStorage.setItem(
-      "placementCategories",
-      JSON.stringify(categories)
-    );
-  }, [categories]);
+        return response.json();
+      })
+      .then((data) => {
+        console.log("Tasks from backend:", data);
+
+        setCategories((current) =>
+          current.map((category) => ({
+            ...category,
+            tasks: data
+              .filter((task) => task.category === category.name)
+              .map((task) => ({
+                id: task.id,
+                name: task.name,
+                completed: task.completed,
+              })),
+          }))
+        );
+      })
+      .catch((error) => {
+        console.error("Backend connection error:", error);
+      });
+  }, []);
 
   const totalTasks = categories.reduce(
     (total, category) => total + category.tasks.length,
@@ -126,36 +114,71 @@ function App() {
     }));
   }, [categories, search, filter]);
 
-  const toggleTask = (categoryId, taskId) => {
-    setCategories((current) =>
-      current.map((category) =>
-        category.id === categoryId
-          ? {
-              ...category,
-              tasks: category.tasks.map((task) =>
-                task.id === taskId
-                  ? { ...task, completed: !task.completed }
-                  : task
-              ),
-            }
-          : category
-      )
-    );
+  // Complete / Uncomplete task
+  const toggleTask = async (categoryId, taskId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/tasks/${taskId}`,
+        {
+          method: "PUT",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update task");
+      }
+
+      setCategories((current) =>
+        current.map((category) =>
+          category.id === categoryId
+            ? {
+                ...category,
+                tasks: category.tasks.map((task) =>
+                  task.id === taskId
+                    ? {
+                        ...task,
+                        completed: !task.completed,
+                      }
+                    : task
+                ),
+              }
+            : category
+        )
+      );
+    } catch (error) {
+      console.error("Update task error:", error);
+    }
   };
 
-  const deleteTask = (categoryId, taskId) => {
-    setCategories((current) =>
-      current.map((category) =>
-        category.id === categoryId
-          ? {
-              ...category,
-              tasks: category.tasks.filter(
-                (task) => task.id !== taskId
-              ),
-            }
-          : category
-      )
-    );
+  // Delete task
+  const deleteTask = async (categoryId, taskId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/tasks/${taskId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete task");
+      }
+
+      setCategories((current) =>
+        current.map((category) =>
+          category.id === categoryId
+            ? {
+                ...category,
+                tasks: category.tasks.filter(
+                  (task) => task.id !== taskId
+                ),
+              }
+            : category
+        )
+      );
+    } catch (error) {
+      console.error("Delete task error:", error);
+    }
   };
 
   const handleTaskInput = (categoryId, value) => {
@@ -165,42 +188,96 @@ function App() {
     }));
   };
 
-  const addTask = (categoryId) => {
+  // Add task
+  const addTask = async (categoryId) => {
+    const category = categories.find(
+      (item) => item.id === categoryId
+    );
+
     const taskName = newTasks[categoryId]?.trim();
 
     if (!taskName) return;
 
-    setCategories((current) =>
-      current.map((category) =>
-        category.id === categoryId
-          ? {
-              ...category,
-              tasks: [
-                ...category.tasks,
-                {
-                  id: Date.now(),
-                  name: taskName,
-                  completed: false,
-                },
-              ],
-            }
-          : category
-      )
-    );
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/tasks",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            category: category.name,
+            name: taskName,
+            completed: false,
+          }),
+        }
+      );
 
-    setNewTasks((current) => ({
-      ...current,
-      [categoryId]: "",
-    }));
+      if (!response.ok) {
+        throw new Error("Failed to add task");
+      }
+
+      const data = await response.json();
+
+      console.log("Task added:", data);
+
+      setCategories((current) =>
+        current.map((item) =>
+          item.id === categoryId
+            ? {
+                ...item,
+                tasks: [
+                  ...item.tasks,
+                  {
+                    id: data.id,
+                    name: data.name,
+                    completed: data.completed,
+                  },
+                ],
+              }
+            : item
+        )
+      );
+
+      setNewTasks((current) => ({
+        ...current,
+        [categoryId]: "",
+      }));
+    } catch (error) {
+      console.error("Add task error:", error);
+    }
   };
 
-  const clearCompleted = () => {
-    setCategories((current) =>
-      current.map((category) => ({
-        ...category,
-        tasks: category.tasks.filter((task) => !task.completed),
-      }))
+  // Clear completed tasks
+  const clearCompleted = async () => {
+    const completedTasksList = categories.flatMap(
+      (category) =>
+        category.tasks
+          .filter((task) => task.completed)
+          .map((task) => task.id)
     );
+
+    try {
+      await Promise.all(
+        completedTasksList.map((taskId) =>
+          fetch(`http://localhost:5000/api/tasks/${taskId}`, {
+            method: "DELETE",
+          })
+        )
+      );
+
+      setCategories((current) =>
+        current.map((category) => ({
+          ...category,
+          tasks: category.tasks.filter(
+            (task) => !task.completed
+          ),
+        }))
+      );
+    } catch (error) {
+      console.error("Clear completed error:", error);
+    }
   };
 
   return (
@@ -309,7 +386,10 @@ function App() {
             </button>
           </div>
 
-          <button className="clear-button" onClick={clearCompleted}>
+          <button
+            className="clear-button"
+            onClick={clearCompleted}
+          >
             Clear Completed
           </button>
         </section>
@@ -327,13 +407,10 @@ function App() {
 
         <section className="dashboard">
           {filteredCategories.map((category) => {
-            const actualCompleted = category.tasks.filter(
-              (task) => task.completed
-            ).length;
-
             const allTasks =
-              categories.find((item) => item.id === category.id)
-                ?.tasks || [];
+              categories.find(
+                (item) => item.id === category.id
+              )?.tasks || [];
 
             const completedCount = allTasks.filter(
               (task) => task.completed
@@ -350,13 +427,17 @@ function App() {
                 : 0;
 
             return (
-              <div className="category-card" key={category.id}>
+              <div
+                className="category-card"
+                key={category.id}
+              >
                 <div className="category-header">
                   <div>
                     <h2>{category.name}</h2>
 
                     <p>
-                      {completedCount} completed / {category.target} target
+                      {completedCount} completed /{" "}
+                      {category.target} target
                     </p>
                   </div>
 
@@ -368,12 +449,15 @@ function App() {
                 <div className="progress-container">
                   <div
                     className="progress-bar"
-                    style={{ width: `${progress}%` }}
+                    style={{
+                      width: `${progress}%`,
+                    }}
                   />
                 </div>
 
                 <div className="category-progress">
                   <span>{progress}% complete</span>
+
                   <span>
                     {completedCount}/{category.target}
                   </span>
@@ -385,7 +469,10 @@ function App() {
                     placeholder={`Add ${category.name} task...`}
                     value={newTasks[category.id] || ""}
                     onChange={(e) =>
-                      handleTaskInput(category.id, e.target.value)
+                      handleTaskInput(
+                        category.id,
+                        e.target.value
+                      )
                     }
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
@@ -395,7 +482,9 @@ function App() {
                   />
 
                   <button
-                    onClick={() => addTask(category.id)}
+                    onClick={() =>
+                      addTask(category.id)
+                    }
                   >
                     +
                   </button>
@@ -408,18 +497,26 @@ function App() {
                     </div>
                   ) : (
                     category.tasks.map((task) => (
-                      <div className="task" key={task.id}>
+                      <div
+                        className="task"
+                        key={task.id}
+                      >
                         <input
                           type="checkbox"
                           checked={task.completed}
                           onChange={() =>
-                            toggleTask(category.id, task.id)
+                            toggleTask(
+                              category.id,
+                              task.id
+                            )
                           }
                         />
 
                         <span
                           className={
-                            task.completed ? "completed" : ""
+                            task.completed
+                              ? "completed"
+                              : ""
                           }
                         >
                           {task.name}
@@ -428,7 +525,10 @@ function App() {
                         <button
                           className="delete"
                           onClick={() =>
-                            deleteTask(category.id, task.id)
+                            deleteTask(
+                              category.id,
+                              task.id
+                            )
                           }
                           title="Delete task"
                         >
@@ -438,13 +538,6 @@ function App() {
                     ))
                   )}
                 </div>
-
-                {search || filter !== "all" ? (
-                  <p className="filtered-info">
-                    Showing {actualCompleted} completed task
-                    {actualCompleted !== 1 ? "s" : ""}.
-                  </p>
-                ) : null}
               </div>
             );
           })}
@@ -452,7 +545,9 @@ function App() {
       </main>
 
       <footer>
-        <p>Placement Tracker • Keep learning. Keep building. 🚀</p>
+        <p>
+          Placement Tracker • Keep learning. Keep building. 🚀
+        </p>
       </footer>
     </div>
   );
