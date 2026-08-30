@@ -1,74 +1,128 @@
 const express = require("express");
 const cors = require("cors");
+const mongoose = require("mongoose");
+require("dotenv").config();
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
 
-// Temporary database
-let tasks = [
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("MongoDB connected successfully");
+  })
+  .catch((error) => {
+    console.error("MongoDB connection error:", error.message);
+  });
+
+const taskSchema = new mongoose.Schema(
   {
-    id: 1,
-    category: "DSA",
-    name: "Two Sum",
-    completed: true,
+    category: {
+      type: String,
+      required: true,
+    },
+    name: {
+      type: String,
+      required: true,
+    },
+    completed: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
-    id: 2,
-    category: "DSA",
-    name: "Binary Search",
-    completed: false,
-  },
-  {
-    id: 3,
-    category: "Courses",
-    name: "React Fundamentals",
-    completed: false,
-  },
-];
+    timestamps: true,
+  }
+);
+
+const Task = mongoose.model("Task", taskSchema);
 
 // GET all tasks
-app.get("/api/tasks", (req, res) => {
-  res.json(tasks);
+app.get("/api/tasks", async (req, res) => {
+  try {
+    const tasks = await Task.find().sort({ createdAt: 1 });
+
+    res.json(
+      tasks.map((task) => ({
+        id: task._id,
+        category: task.category,
+        name: task.name,
+        completed: task.completed,
+      }))
+    );
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch tasks",
+    });
+  }
 });
 
 // ADD task
-app.post("/api/tasks", (req, res) => {
-  const newTask = {
-    id: Date.now(),
-    ...req.body,
-  };
+app.post("/api/tasks", async (req, res) => {
+  try {
+    const { category, name, completed } = req.body;
 
-  tasks.push(newTask);
-  res.status(201).json(newTask);
+    const newTask = await Task.create({
+      category,
+      name,
+      completed: completed || false,
+    });
+
+    res.status(201).json({
+      id: newTask._id,
+      category: newTask.category,
+      name: newTask.name,
+      completed: newTask.completed,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to add task",
+    });
+  }
 });
 
 // DELETE task
-app.delete("/api/tasks/:id", (req, res) => {
-  const id = Number(req.params.id);
+app.delete("/api/tasks/:id", async (req, res) => {
+  try {
+    await Task.findByIdAndDelete(req.params.id);
 
-  tasks = tasks.filter((task) => task.id !== id);
-
-  res.json({
-    message: "Task deleted successfully",
-  });
+    res.json({
+      message: "Task deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to delete task",
+    });
+  }
 });
 
 // TOGGLE completion
-app.put("/api/tasks/:id", (req, res) => {
-  const id = Number(req.params.id);
+app.put("/api/tasks/:id", async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
 
-  tasks = tasks.map((task) =>
-    task.id === id
-      ? { ...task, completed: !task.completed }
-      : task
-  );
+    if (!task) {
+      return res.status(404).json({
+        message: "Task not found",
+      });
+    }
 
-  res.json({
-    message: "Task updated",
-  });
+    task.completed = !task.completed;
+
+    await task.save();
+
+    res.json({
+      message: "Task updated successfully",
+      completed: task.completed,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to update task",
+    });
+  }
 });
 
 app.listen(PORT, () => {
