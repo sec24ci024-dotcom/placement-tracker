@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import Auth from "./Auth";
 
 const API_URL = "http://localhost:5000/api/tasks";
 
@@ -50,8 +51,19 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem("user");
+
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
   // Load tasks from backend
   useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     fetch(API_URL)
       .then((response) => {
         if (!response.ok) {
@@ -65,7 +77,9 @@ function App() {
           currentCategories.map((category) => ({
             ...category,
             tasks: tasks
-              .filter((task) => task.category === category.name)
+              .filter(
+                (task) => task.category === category.name
+              )
               .map((task) => ({
                 id: task.id,
                 name: task.name,
@@ -77,30 +91,40 @@ function App() {
         setLoading(false);
       })
       .catch((error) => {
-        console.error("Backend connection error:", error);
+        console.error(
+          "Backend connection error:",
+          error
+        );
+
         setError("Unable to connect to backend.");
         setLoading(false);
       });
-  }, []);
+  }, [user]);
 
   const totalTasks = categories.reduce(
-    (total, category) => total + category.tasks.length,
+    (total, category) =>
+      total + category.tasks.length,
     0
   );
 
   const completedTasks = categories.reduce(
     (total, category) =>
       total +
-      category.tasks.filter((task) => task.completed).length,
+      category.tasks.filter(
+        (task) => task.completed
+      ).length,
     0
   );
 
-  const pendingTasks = totalTasks - completedTasks;
+  const pendingTasks =
+    totalTasks - completedTasks;
 
   const overallProgress =
     totalTasks === 0
       ? 0
-      : Math.round((completedTasks / totalTasks) * 100);
+      : Math.round(
+          (completedTasks / totalTasks) * 100
+        );
 
   const filteredCategories = useMemo(() => {
     return categories.map((category) => ({
@@ -112,59 +136,89 @@ function App() {
 
         const matchesFilter =
           filter === "all" ||
-          (filter === "completed" && task.completed) ||
-          (filter === "pending" && !task.completed);
+          (filter === "completed" &&
+            task.completed) ||
+          (filter === "pending" &&
+            !task.completed);
 
-        return matchesSearch && matchesFilter;
+        return (
+          matchesSearch &&
+          matchesFilter
+        );
       }),
     }));
   }, [categories, search, filter]);
 
   // Toggle task
-  const toggleTask = async (categoryId, taskId) => {
+  const toggleTask = async (
+    categoryId,
+    taskId
+  ) => {
     try {
-      const response = await fetch(`${API_URL}/${taskId}`, {
-        method: "PUT",
-      });
+      const response = await fetch(
+        `${API_URL}/${taskId}`,
+        {
+          method: "PUT",
+        }
+      );
 
       if (!response.ok) {
-        throw new Error("Failed to update task");
+        throw new Error(
+          "Failed to update task"
+        );
       }
 
-      const updatedTask = await response.json();
+      const updatedTask =
+        await response.json();
 
       setCategories((current) =>
         current.map((category) =>
           category.id === categoryId
             ? {
                 ...category,
-                tasks: category.tasks.map((task) =>
-                  task.id === taskId
-                    ? {
-                        ...task,
-                        completed: updatedTask.completed,
-                      }
-                    : task
+                tasks: category.tasks.map(
+                  (task) =>
+                    task.id === taskId
+                      ? {
+                          ...task,
+                          completed:
+                            updatedTask.completed,
+                        }
+                      : task
                 ),
               }
             : category
         )
       );
     } catch (error) {
-      console.error("Toggle error:", error);
-      setError("Unable to update task.");
+      console.error(
+        "Toggle error:",
+        error
+      );
+
+      setError(
+        "Unable to update task."
+      );
     }
   };
 
   // Delete task
-  const deleteTask = async (categoryId, taskId) => {
+  const deleteTask = async (
+    categoryId,
+    taskId
+  ) => {
     try {
-      const response = await fetch(`${API_URL}/${taskId}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `${API_URL}/${taskId}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (!response.ok) {
-        throw new Error("Failed to delete task");
+        throw new Error(
+          "Failed to delete task"
+        );
       }
 
       setCategories((current) =>
@@ -172,21 +226,32 @@ function App() {
           category.id === categoryId
             ? {
                 ...category,
-                tasks: category.tasks.filter(
-                  (task) => task.id !== taskId
-                ),
+                tasks:
+                  category.tasks.filter(
+                    (task) =>
+                      task.id !== taskId
+                  ),
               }
             : category
         )
       );
     } catch (error) {
-      console.error("Delete error:", error);
-      setError("Unable to delete task.");
+      console.error(
+        "Delete error:",
+        error
+      );
+
+      setError(
+        "Unable to delete task."
+      );
     }
   };
 
   // Handle task input
-  const handleTaskInput = (categoryId, value) => {
+  const handleTaskInput = (
+    categoryId,
+    value
+  ) => {
     setNewTasks((current) => ({
       ...current,
       [categoryId]: value,
@@ -194,35 +259,52 @@ function App() {
   };
 
   // Add task
-  const addTask = async (categoryId) => {
-    const taskName = newTasks[categoryId]?.trim();
+  const addTask = async (
+    categoryId
+  ) => {
+    const taskName =
+      newTasks[categoryId]?.trim();
 
-    if (!taskName) return;
+    if (!taskName) {
+      return;
+    }
 
-    const category = categories.find(
-      (item) => item.id === categoryId
-    );
+    const category =
+      categories.find(
+        (item) =>
+          item.id === categoryId
+      );
 
-    if (!category) return;
+    if (!category) {
+      return;
+    }
 
     try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          category: category.name,
-          name: taskName,
-          completed: false,
-        }),
-      });
+      const response = await fetch(
+        API_URL,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            category:
+              category.name,
+            name: taskName,
+            completed: false,
+          }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error("Failed to add task");
+        throw new Error(
+          "Failed to add task"
+        );
       }
 
-      const newTask = await response.json();
+      const newTask =
+        await response.json();
 
       setCategories((current) =>
         current.map((item) =>
@@ -234,7 +316,8 @@ function App() {
                   {
                     id: newTask.id,
                     name: newTask.name,
-                    completed: newTask.completed,
+                    completed:
+                      newTask.completed,
                   },
                 ],
               }
@@ -247,59 +330,130 @@ function App() {
         [categoryId]: "",
       }));
     } catch (error) {
-      console.error("Add task error:", error);
-      setError("Unable to add task.");
+      console.error(
+        "Add task error:",
+        error
+      );
+
+      setError(
+        "Unable to add task."
+      );
     }
   };
 
   // Clear completed tasks
   const clearCompleted = async () => {
-    const completed = categories.flatMap((category) =>
-      category.tasks
-        .filter((task) => task.completed)
-        .map((task) => task.id)
-    );
+    const completed =
+      categories.flatMap(
+        (category) =>
+          category.tasks
+            .filter(
+              (task) =>
+                task.completed
+            )
+            .map(
+              (task) => task.id
+            )
+      );
 
     try {
       await Promise.all(
-        completed.map((taskId) =>
-          fetch(`${API_URL}/${taskId}`, {
-            method: "DELETE",
-          })
+        completed.map(
+          (taskId) =>
+            fetch(
+              `${API_URL}/${taskId}`,
+              {
+                method: "DELETE",
+              }
+            )
         )
       );
 
       setCategories((current) =>
         current.map((category) => ({
           ...category,
-          tasks: category.tasks.filter(
-            (task) => !task.completed
-          ),
+          tasks:
+            category.tasks.filter(
+              (task) =>
+                !task.completed
+            ),
         }))
       );
     } catch (error) {
-      console.error("Clear completed error:", error);
-      setError("Unable to clear completed tasks.");
+      console.error(
+        "Clear completed error:",
+        error
+      );
+
+      setError(
+        "Unable to clear completed tasks."
+      );
     }
   };
+
+  // Logout
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    setUser(null);
+    setCategories(
+      initialCategories
+    );
+  };
+
+  // Show authentication page
+  // when the user is not logged in
+  if (!user) {
+    return (
+      <Auth
+        onLogin={(loggedInUser) => {
+          setUser(loggedInUser);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="app">
       <header className="header">
         <div>
-          <p className="eyebrow">PLACEMENT PREPARATION</p>
+          <p className="eyebrow">
+            PLACEMENT PREPARATION
+          </p>
 
-          <h1>Placement Tracker</h1>
+          <h1>
+            Placement Tracker
+          </h1>
 
           <p>
-            Track your coding, aptitude, courses, projects and
-            interview preparation.
+            Track your coding,
+            aptitude, courses,
+            projects and interview
+            preparation.
           </p>
+
+          <div className="user-section">
+            <span>
+              Hi, {user.name}
+            </span>
+
+            <button
+              onClick={handleLogout}
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         <div className="header-progress">
-          <strong>{overallProgress}%</strong>
-          <span>Overall Progress</span>
+          <strong>
+            {overallProgress}%
+          </strong>
+
+          <span>
+            Overall Progress
+          </span>
         </div>
       </header>
 
@@ -307,21 +461,34 @@ function App() {
         {error && (
           <div className="error-message">
             {error}
-            <button onClick={() => setError("")}>×</button>
+
+            <button
+              onClick={() =>
+                setError("")
+              }
+            >
+              ×
+            </button>
           </div>
         )}
 
         {loading ? (
           <div className="loading">
-            Loading your placement tasks...
+            Loading your placement
+            tasks...
           </div>
         ) : (
           <>
             <section className="overall-progress">
               <div className="section-heading">
                 <div>
-                  <p className="small-label">YOUR PROGRESS</p>
-                  <h2>Overall Preparation</h2>
+                  <p className="small-label">
+                    YOUR PROGRESS
+                  </p>
+
+                  <h2>
+                    Overall Preparation
+                  </h2>
                 </div>
 
                 <span className="progress-percentage">
@@ -339,11 +506,14 @@ function App() {
               </div>
 
               <p className="progress-message">
-                {overallProgress === 100
+                {overallProgress ===
+                100
                   ? "Excellent! You are fully prepared."
-                  : overallProgress >= 70
+                  : overallProgress >=
+                    70
                   ? "Great progress! Keep pushing."
-                  : overallProgress >= 40
+                  : overallProgress >=
+                    40
                   ? "Good start. Stay consistent."
                   : "Start completing tasks to build momentum."}
               </p>
@@ -351,21 +521,45 @@ function App() {
 
             <section className="statistics">
               <div className="stat-card">
-                <span>Total Tasks</span>
-                <strong>{totalTasks}</strong>
-                <small>All categories</small>
+                <span>
+                  Total Tasks
+                </span>
+
+                <strong>
+                  {totalTasks}
+                </strong>
+
+                <small>
+                  All categories
+                </small>
               </div>
 
               <div className="stat-card success-card">
-                <span>Completed</span>
-                <strong>{completedTasks}</strong>
-                <small>Tasks finished</small>
+                <span>
+                  Completed
+                </span>
+
+                <strong>
+                  {completedTasks}
+                </strong>
+
+                <small>
+                  Tasks finished
+                </small>
               </div>
 
               <div className="stat-card warning-card">
-                <span>Pending</span>
-                <strong>{pendingTasks}</strong>
-                <small>Tasks remaining</small>
+                <span>
+                  Pending
+                </span>
+
+                <strong>
+                  {pendingTasks}
+                </strong>
+
+                <small>
+                  Tasks remaining
+                </small>
               </div>
             </section>
 
@@ -377,36 +571,56 @@ function App() {
                   type="text"
                   placeholder="Search tasks..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) =>
+                    setSearch(
+                      e.target.value
+                    )
+                  }
                 />
               </div>
 
               <div className="filter-buttons">
                 <button
                   className={
-                    filter === "all" ? "active" : ""
+                    filter === "all"
+                      ? "active"
+                      : ""
                   }
-                  onClick={() => setFilter("all")}
+                  onClick={() =>
+                    setFilter("all")
+                  }
                 >
                   All
                 </button>
 
                 <button
                   className={
-                    filter === "pending" ? "active" : ""
+                    filter ===
+                    "pending"
+                      ? "active"
+                      : ""
                   }
-                  onClick={() => setFilter("pending")}
+                  onClick={() =>
+                    setFilter(
+                      "pending"
+                    )
+                  }
                 >
                   Pending
                 </button>
 
                 <button
                   className={
-                    filter === "completed"
+                    filter ===
+                    "completed"
                       ? "active"
                       : ""
                   }
-                  onClick={() => setFilter("completed")}
+                  onClick={() =>
+                    setFilter(
+                      "completed"
+                    )
+                  }
                 >
                   Completed
                 </button>
@@ -414,8 +628,12 @@ function App() {
 
               <button
                 className="clear-button"
-                onClick={clearCompleted}
-                disabled={completedTasks === 0}
+                onClick={
+                  clearCompleted
+                }
+                disabled={
+                  completedTasks === 0
+                }
               >
                 Clear Completed
               </button>
@@ -433,153 +651,202 @@ function App() {
               </div>
 
               <span className="category-count">
-                {categories.length} Categories
+                {categories.length}{" "}
+                Categories
               </span>
             </div>
 
             <section className="dashboard">
-              {filteredCategories.map((category) => {
-                const allTasks =
-                  categories.find(
-                    (item) => item.id === category.id
-                  )?.tasks || [];
+              {filteredCategories.map(
+                (category) => {
+                  const allTasks =
+                    categories.find(
+                      (item) =>
+                        item.id ===
+                        category.id
+                    )?.tasks || [];
 
-                const completedCount = allTasks.filter(
-                  (task) => task.completed
-                ).length;
+                  const completedCount =
+                    allTasks.filter(
+                      (task) =>
+                        task.completed
+                    ).length;
 
-                const progress =
-                  category.target > 0
-                    ? Math.min(
-                        100,
-                        Math.round(
-                          (completedCount /
-                            category.target) *
-                            100
-                        )
-                      )
-                    : 0;
-
-                return (
-                  <div
-                    className="category-card"
-                    key={category.id}
-                  >
-                    <div className="category-header">
-                      <div>
-                        <h2>{category.name}</h2>
-
-                        <p>
-                          {completedCount} completed /{" "}
-                          {category.target} target
-                        </p>
-                      </div>
-
-                      <div className="category-icon">
-                        {category.name.charAt(0)}
-                      </div>
-                    </div>
-
-                    <div className="progress-container">
-                      <div
-                        className="progress-bar"
-                        style={{
-                          width: `${progress}%`,
-                        }}
-                      />
-                    </div>
-
-                    <div className="category-progress">
-                      <span>
-                        {progress}% complete
-                      </span>
-
-                      <span>
-                        {completedCount}/
-                        {category.target}
-                      </span>
-                    </div>
-
-                    <div className="add-task">
-                      <input
-                        type="text"
-                        placeholder={`Add ${category.name} task...`}
-                        value={
-                          newTasks[category.id] || ""
-                        }
-                        onChange={(e) =>
-                          handleTaskInput(
-                            category.id,
-                            e.target.value
+                  const progress =
+                    category.target >
+                    0
+                      ? Math.min(
+                          100,
+                          Math.round(
+                            (completedCount /
+                              category.target) *
+                              100
                           )
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            addTask(category.id);
-                          }
-                        }}
-                      />
+                        )
+                      : 0;
 
-                      <button
-                        onClick={() =>
-                          addTask(category.id)
-                        }
-                      >
-                        +
-                      </button>
-                    </div>
+                  return (
+                    <div
+                      className="category-card"
+                      key={
+                        category.id
+                      }
+                    >
+                      <div className="category-header">
+                        <div>
+                          <h2>
+                            {
+                              category.name
+                            }
+                          </h2>
 
-                    <div className="task-list">
-                      {category.tasks.length === 0 ? (
-                        <div className="empty-state">
-                          No tasks found.
+                          <p>
+                            {
+                              completedCount
+                            }{" "}
+                            completed /{" "}
+                            {
+                              category.target
+                            }{" "}
+                            target
+                          </p>
                         </div>
-                      ) : (
-                        category.tasks.map((task) => (
-                          <div
-                            className="task"
-                            key={task.id}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={task.completed}
-                              onChange={() =>
-                                toggleTask(
-                                  category.id,
-                                  task.id
-                                )
-                              }
-                            />
 
-                            <span
-                              className={
-                                task.completed
-                                  ? "completed"
-                                  : ""
-                              }
-                            >
-                              {task.name}
-                            </span>
+                        <div className="category-icon">
+                          {category.name.charAt(
+                            0
+                          )}
+                        </div>
+                      </div>
 
-                            <button
-                              className="delete"
-                              onClick={() =>
-                                deleteTask(
-                                  category.id,
-                                  task.id
-                                )
-                              }
-                              title="Delete task"
-                            >
-                              ×
-                            </button>
+                      <div className="progress-container">
+                        <div
+                          className="progress-bar"
+                          style={{
+                            width: `${progress}%`,
+                          }}
+                        />
+                      </div>
+
+                      <div className="category-progress">
+                        <span>
+                          {progress}%
+                          complete
+                        </span>
+
+                        <span>
+                          {
+                            completedCount
+                          }
+                          /
+                          {
+                            category.target
+                          }
+                        </span>
+                      </div>
+
+                      <div className="add-task">
+                        <input
+                          type="text"
+                          placeholder={`Add ${category.name} task...`}
+                          value={
+                            newTasks[
+                              category.id
+                            ] || ""
+                          }
+                          onChange={(e) =>
+                            handleTaskInput(
+                              category.id,
+                              e.target
+                                .value
+                            )
+                          }
+                          onKeyDown={(e) => {
+                            if (
+                              e.key ===
+                              "Enter"
+                            ) {
+                              addTask(
+                                category.id
+                              );
+                            }
+                          }}
+                        />
+
+                        <button
+                          onClick={() =>
+                            addTask(
+                              category.id
+                            )
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <div className="task-list">
+                        {category.tasks
+                          .length ===
+                        0 ? (
+                          <div className="empty-state">
+                            No tasks
+                            found.
                           </div>
-                        ))
-                      )}
+                        ) : (
+                          category.tasks.map(
+                            (task) => (
+                              <div
+                                className="task"
+                                key={
+                                  task.id
+                                }
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    task.completed
+                                  }
+                                  onChange={() =>
+                                    toggleTask(
+                                      category.id,
+                                      task.id
+                                    )
+                                  }
+                                />
+
+                                <span
+                                  className={
+                                    task.completed
+                                      ? "completed"
+                                      : ""
+                                  }
+                                >
+                                  {
+                                    task.name
+                                  }
+                                </span>
+
+                                <button
+                                  className="delete"
+                                  onClick={() =>
+                                    deleteTask(
+                                      category.id,
+                                      task.id
+                                    )
+                                  }
+                                  title="Delete task"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            )
+                          )
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                }
+              )}
             </section>
           </>
         )}
@@ -587,7 +854,8 @@ function App() {
 
       <footer>
         <p>
-          Placement Tracker • Keep learning. Keep building. 🚀
+          Placement Tracker • Keep
+          learning. Keep building. 🚀
         </p>
       </footer>
     </div>
