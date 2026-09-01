@@ -44,7 +44,10 @@ const initialCategories = [
 ];
 
 function App() {
-  const [categories, setCategories] = useState(initialCategories);
+  const [categories, setCategories] = useState(
+    initialCategories
+  );
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [newTasks, setNewTasks] = useState({});
@@ -57,31 +60,76 @@ function App() {
     return savedUser ? JSON.parse(savedUser) : null;
   });
 
-  // Load tasks from backend
+  // Get JWT token
+  const getToken = () => {
+    return localStorage.getItem("token");
+  };
+
+  // Headers for protected API requests
+  const getAuthHeaders = () => {
+    const token = getToken();
+
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+  };
+
+  // Load tasks
   useEffect(() => {
     if (!user) {
       setLoading(false);
       return;
     }
 
-    fetch(API_URL)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to fetch tasks");
+    const token = getToken();
+
+    if (!token) {
+      setError("Session expired. Please login again.");
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    fetch(API_URL, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then(async (response) => {
+        const data = await response.json();
+
+        if (
+          response.status === 401 ||
+          response.status === 403
+        ) {
+          throw new Error("SESSION_EXPIRED");
         }
 
-        return response.json();
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Failed to fetch tasks"
+          );
+        }
+
+        return data;
       })
       .then((tasks) => {
         setCategories((currentCategories) =>
           currentCategories.map((category) => ({
             ...category,
+
             tasks: tasks
               .filter(
-                (task) => task.category === category.name
+                (task) =>
+                  task.category === category.name
               )
               .map((task) => ({
-                id: task.id,
+                id: task._id || task.id,
                 name: task.name,
                 completed: task.completed,
               })),
@@ -92,15 +140,34 @@ function App() {
       })
       .catch((error) => {
         console.error(
-          "Backend connection error:",
+          "Load tasks error:",
           error
         );
 
-        setError("Unable to connect to backend.");
+        if (
+          error.message ===
+          "SESSION_EXPIRED"
+        ) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+
+          setUser(null);
+          setCategories(initialCategories);
+
+          setError(
+            "Your session has expired. Please login again."
+          );
+        } else {
+          setError(
+            "Unable to connect to backend."
+          );
+        }
+
         setLoading(false);
       });
   }, [user]);
 
+  // Statistics
   const totalTasks = categories.reduce(
     (total, category) =>
       total + category.tasks.length,
@@ -126,28 +193,39 @@ function App() {
           (completedTasks / totalTasks) * 100
         );
 
+  // Search + filter
   const filteredCategories = useMemo(() => {
     return categories.map((category) => ({
       ...category,
-      tasks: category.tasks.filter((task) => {
-        const matchesSearch = task.name
-          .toLowerCase()
-          .includes(search.toLowerCase());
 
-        const matchesFilter =
-          filter === "all" ||
-          (filter === "completed" &&
-            task.completed) ||
-          (filter === "pending" &&
-            !task.completed);
+      tasks: category.tasks.filter(
+        (task) => {
+          const matchesSearch =
+            task.name
+              .toLowerCase()
+              .includes(
+                search.toLowerCase()
+              );
 
-        return (
-          matchesSearch &&
-          matchesFilter
-        );
-      }),
+          const matchesFilter =
+            filter === "all" ||
+            (filter === "completed" &&
+              task.completed) ||
+            (filter === "pending" &&
+              !task.completed);
+
+          return (
+            matchesSearch &&
+            matchesFilter
+          );
+        }
+      ),
     }));
-  }, [categories, search, filter]);
+  }, [
+    categories,
+    search,
+    filter,
+  ]);
 
   // Toggle task
   const toggleTask = async (
@@ -159,33 +237,45 @@ function App() {
         `${API_URL}/${taskId}`,
         {
           method: "PUT",
+          headers: getAuthHeaders(),
         }
       );
 
-      if (!response.ok) {
+      const data = await response.json();
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
         throw new Error(
-          "Failed to update task"
+          "SESSION_EXPIRED"
         );
       }
 
-      const updatedTask =
-        await response.json();
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Failed to update task"
+        );
+      }
 
       setCategories((current) =>
         current.map((category) =>
           category.id === categoryId
             ? {
                 ...category,
-                tasks: category.tasks.map(
-                  (task) =>
-                    task.id === taskId
-                      ? {
-                          ...task,
-                          completed:
-                            updatedTask.completed,
-                        }
-                      : task
-                ),
+
+                tasks:
+                  category.tasks.map(
+                    (task) =>
+                      task.id === taskId
+                        ? {
+                            ...task,
+                            completed:
+                              data.completed,
+                          }
+                        : task
+                  ),
               }
             : category
         )
@@ -196,9 +286,28 @@ function App() {
         error
       );
 
-      setError(
-        "Unable to update task."
-      );
+      if (
+        error.message ===
+        "SESSION_EXPIRED"
+      ) {
+        localStorage.removeItem(
+          "token"
+        );
+
+        localStorage.removeItem(
+          "user"
+        );
+
+        setUser(null);
+
+        setError(
+          "Your session has expired. Please login again."
+        );
+      } else {
+        setError(
+          "Unable to update task."
+        );
+      }
     }
   };
 
@@ -212,12 +321,25 @@ function App() {
         `${API_URL}/${taskId}`,
         {
           method: "DELETE",
+          headers: getAuthHeaders(),
         }
       );
 
+      const data = await response.json();
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+        throw new Error(
+          "SESSION_EXPIRED"
+        );
+      }
+
       if (!response.ok) {
         throw new Error(
-          "Failed to delete task"
+          data.message ||
+            "Failed to delete task"
         );
       }
 
@@ -226,6 +348,7 @@ function App() {
           category.id === categoryId
             ? {
                 ...category,
+
                 tasks:
                   category.tasks.filter(
                     (task) =>
@@ -241,9 +364,28 @@ function App() {
         error
       );
 
-      setError(
-        "Unable to delete task."
-      );
+      if (
+        error.message ===
+        "SESSION_EXPIRED"
+      ) {
+        localStorage.removeItem(
+          "token"
+        );
+
+        localStorage.removeItem(
+          "user"
+        );
+
+        setUser(null);
+
+        setError(
+          "Your session has expired. Please login again."
+        );
+      } else {
+        setError(
+          "Unable to delete task."
+        );
+      }
     }
   };
 
@@ -262,20 +404,19 @@ function App() {
   const addTask = async (
     categoryId
   ) => {
-    const taskName =
-      newTasks[categoryId]?.trim();
-
-    if (!taskName) {
-      return;
-    }
-
     const category =
       categories.find(
         (item) =>
           item.id === categoryId
       );
 
-    if (!category) {
+    const taskName =
+      newTasks[categoryId]?.trim();
+
+    if (
+      !taskName ||
+      !category
+    ) {
       return;
     }
 
@@ -284,40 +425,58 @@ function App() {
         API_URL,
         {
           method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+
+          headers:
+            getAuthHeaders(),
+
           body: JSON.stringify({
             category:
               category.name,
+
             name: taskName,
+
             completed: false,
           }),
         }
       );
 
-      if (!response.ok) {
+      const data =
+        await response.json();
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
         throw new Error(
-          "Failed to add task"
+          "SESSION_EXPIRED"
         );
       }
 
-      const newTask =
-        await response.json();
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Failed to add task"
+        );
+      }
 
       setCategories((current) =>
         current.map((item) =>
           item.id === categoryId
             ? {
                 ...item,
+
                 tasks: [
                   ...item.tasks,
+
                   {
-                    id: newTask.id,
-                    name: newTask.name,
+                    id:
+                      data._id ||
+                      data.id,
+
+                    name: data.name,
+
                     completed:
-                      newTask.completed,
+                      data.completed,
                   },
                 ],
               }
@@ -335,15 +494,34 @@ function App() {
         error
       );
 
-      setError(
-        "Unable to add task."
-      );
+      if (
+        error.message ===
+        "SESSION_EXPIRED"
+      ) {
+        localStorage.removeItem(
+          "token"
+        );
+
+        localStorage.removeItem(
+          "user"
+        );
+
+        setUser(null);
+
+        setError(
+          "Your session has expired. Please login again."
+        );
+      } else {
+        setError(
+          "Unable to add task."
+        );
+      }
     }
   };
 
   // Clear completed tasks
   const clearCompleted = async () => {
-    const completed =
+    const completedTaskIds =
       categories.flatMap(
         (category) =>
           category.tasks
@@ -352,32 +530,68 @@ function App() {
                 task.completed
             )
             .map(
-              (task) => task.id
+              (task) =>
+                task.id
             )
       );
 
     try {
-      await Promise.all(
-        completed.map(
-          (taskId) =>
-            fetch(
-              `${API_URL}/${taskId}`,
-              {
-                method: "DELETE",
-              }
-            )
-        )
-      );
+      const results =
+        await Promise.all(
+          completedTaskIds.map(
+            (taskId) =>
+              fetch(
+                `${API_URL}/${taskId}`,
+                {
+                  method:
+                    "DELETE",
+
+                  headers:
+                    getAuthHeaders(),
+                }
+              )
+          )
+        );
+
+      const unauthorized =
+        results.some(
+          (response) =>
+            response.status ===
+              401 ||
+            response.status ===
+              403
+        );
+
+      if (unauthorized) {
+        throw new Error(
+          "SESSION_EXPIRED"
+        );
+      }
+
+      const failed =
+        results.some(
+          (response) =>
+            !response.ok
+        );
+
+      if (failed) {
+        throw new Error(
+          "Failed to clear completed tasks"
+        );
+      }
 
       setCategories((current) =>
-        current.map((category) => ({
-          ...category,
-          tasks:
-            category.tasks.filter(
-              (task) =>
-                !task.completed
-            ),
-        }))
+        current.map(
+          (category) => ({
+            ...category,
+
+            tasks:
+              category.tasks.filter(
+                (task) =>
+                  !task.completed
+              ),
+          })
+        )
       );
     } catch (error) {
       console.error(
@@ -385,25 +599,54 @@ function App() {
         error
       );
 
-      setError(
-        "Unable to clear completed tasks."
-      );
+      if (
+        error.message ===
+        "SESSION_EXPIRED"
+      ) {
+        localStorage.removeItem(
+          "token"
+        );
+
+        localStorage.removeItem(
+          "user"
+        );
+
+        setUser(null);
+
+        setError(
+          "Your session has expired. Please login again."
+        );
+      } else {
+        setError(
+          "Unable to clear completed tasks."
+        );
+      }
     }
   };
 
   // Logout
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    localStorage.removeItem(
+      "token"
+    );
+
+    localStorage.removeItem(
+      "user"
+    );
 
     setUser(null);
+
     setCategories(
       initialCategories
     );
+
+    setSearch("");
+    setFilter("all");
+    setNewTasks({});
+    setError("");
   };
 
-  // Show authentication page
-  // when the user is not logged in
+  // Login screen
   if (!user) {
     return (
       <Auth
@@ -416,8 +659,11 @@ function App() {
 
   return (
     <div className="app">
+
       <header className="header">
+
         <div>
+
           <p className="eyebrow">
             PLACEMENT PREPARATION
           </p>
@@ -434,19 +680,25 @@ function App() {
           </p>
 
           <div className="user-section">
+
             <span>
               Hi, {user.name}
             </span>
 
             <button
-              onClick={handleLogout}
+              onClick={
+                handleLogout
+              }
             >
               Logout
             </button>
+
           </div>
+
         </div>
 
         <div className="header-progress">
+
           <strong>
             {overallProgress}%
           </strong>
@@ -454,12 +706,16 @@ function App() {
           <span>
             Overall Progress
           </span>
+
         </div>
+
       </header>
 
       <main>
+
         {error && (
           <div className="error-message">
+
             {error}
 
             <button
@@ -469,19 +725,27 @@ function App() {
             >
               ×
             </button>
+
           </div>
         )}
 
         {loading ? (
+
           <div className="loading">
             Loading your placement
             tasks...
           </div>
+
         ) : (
+
           <>
+
             <section className="overall-progress">
+
               <div className="section-heading">
+
                 <div>
+
                   <p className="small-label">
                     YOUR PROGRESS
                   </p>
@@ -489,23 +753,29 @@ function App() {
                   <h2>
                     Overall Preparation
                   </h2>
+
                 </div>
 
                 <span className="progress-percentage">
                   {overallProgress}%
                 </span>
+
               </div>
 
               <div className="overall-progress-container">
+
                 <div
                   className="overall-progress-bar"
                   style={{
-                    width: `${overallProgress}%`,
+                    width:
+                      `${overallProgress}%`,
                   }}
                 />
+
               </div>
 
               <p className="progress-message">
+
                 {overallProgress ===
                 100
                   ? "Excellent! You are fully prepared."
@@ -516,11 +786,15 @@ function App() {
                     40
                   ? "Good start. Stay consistent."
                   : "Start completing tasks to build momentum."}
+
               </p>
+
             </section>
 
             <section className="statistics">
+
               <div className="stat-card">
+
                 <span>
                   Total Tasks
                 </span>
@@ -532,9 +806,11 @@ function App() {
                 <small>
                   All categories
                 </small>
+
               </div>
 
               <div className="stat-card success-card">
+
                 <span>
                   Completed
                 </span>
@@ -546,9 +822,11 @@ function App() {
                 <small>
                   Tasks finished
                 </small>
+
               </div>
 
               <div className="stat-card warning-card">
+
                 <span>
                   Pending
                 </span>
@@ -560,12 +838,18 @@ function App() {
                 <small>
                   Tasks remaining
                 </small>
+
               </div>
+
             </section>
 
             <section className="controls">
+
               <div className="search-container">
-                <span>⌕</span>
+
+                <span>
+                  ⌕
+                </span>
 
                 <input
                   type="text"
@@ -577,9 +861,11 @@ function App() {
                     )
                   }
                 />
+
               </div>
 
               <div className="filter-buttons">
+
                 <button
                   className={
                     filter === "all"
@@ -595,8 +881,7 @@ function App() {
 
                 <button
                   className={
-                    filter ===
-                    "pending"
+                    filter === "pending"
                       ? "active"
                       : ""
                   }
@@ -611,8 +896,7 @@ function App() {
 
                 <button
                   className={
-                    filter ===
-                    "completed"
+                    filter === "completed"
                       ? "active"
                       : ""
                   }
@@ -624,6 +908,7 @@ function App() {
                 >
                   Completed
                 </button>
+
               </div>
 
               <button
@@ -631,16 +916,16 @@ function App() {
                 onClick={
                   clearCompleted
                 }
-                disabled={
-                  completedTasks === 0
-                }
               >
                 Clear Completed
               </button>
+
             </section>
 
             <div className="section-title-row">
+
               <div>
+
                 <p className="small-label">
                   PREPARATION AREAS
                 </p>
@@ -648,17 +933,24 @@ function App() {
                 <h2 className="section-title">
                   Your Categories
                 </h2>
+
               </div>
 
               <span className="category-count">
-                {categories.length}{" "}
+
+                {categories.length}
+                {" "}
                 Categories
+
               </span>
+
             </div>
 
             <section className="dashboard">
+
               {filteredCategories.map(
                 (category) => {
+
                   const allTasks =
                     categories.find(
                       (item) =>
@@ -686,30 +978,32 @@ function App() {
                       : 0;
 
                   return (
+
                     <div
                       className="category-card"
                       key={
                         category.id
                       }
                     >
+
                       <div className="category-header">
+
                         <div>
+
                           <h2>
-                            {
-                              category.name
-                            }
+                            {category.name}
                           </h2>
 
                           <p>
-                            {
-                              completedCount
-                            }{" "}
-                            completed /{" "}
-                            {
-                              category.target
-                            }{" "}
+                            {completedCount}
+                            {" "}
+                            completed /
+                            {" "}
+                            {category.target}
+                            {" "}
                             target
                           </p>
+
                         </div>
 
                         <div className="category-icon">
@@ -717,38 +1011,43 @@ function App() {
                             0
                           )}
                         </div>
+
                       </div>
 
                       <div className="progress-container">
+
                         <div
                           className="progress-bar"
                           style={{
-                            width: `${progress}%`,
+                            width:
+                              `${progress}%`,
                           }}
                         />
+
                       </div>
 
                       <div className="category-progress">
+
                         <span>
                           {progress}%
+                          {" "}
                           complete
                         </span>
 
                         <span>
-                          {
-                            completedCount
-                          }
-                          /
-                          {
-                            category.target
-                          }
+                          {completedCount}/
+                          {category.target}
                         </span>
+
                       </div>
 
                       <div className="add-task">
+
                         <input
                           type="text"
-                          placeholder={`Add ${category.name} task...`}
+                          placeholder={
+                            `Add ${category.name} task...`
+                          }
                           value={
                             newTasks[
                               category.id
@@ -757,11 +1056,11 @@ function App() {
                           onChange={(e) =>
                             handleTaskInput(
                               category.id,
-                              e.target
-                                .value
+                              e.target.value
                             )
                           }
                           onKeyDown={(e) => {
+
                             if (
                               e.key ===
                               "Enter"
@@ -770,6 +1069,7 @@ function App() {
                                 category.id
                               );
                             }
+
                           }}
                         />
 
@@ -782,25 +1082,31 @@ function App() {
                         >
                           +
                         </button>
+
                       </div>
 
                       <div className="task-list">
+
                         {category.tasks
                           .length ===
                         0 ? (
+
                           <div className="empty-state">
-                            No tasks
-                            found.
+                            No tasks found.
                           </div>
+
                         ) : (
+
                           category.tasks.map(
                             (task) => (
+
                               <div
                                 className="task"
                                 key={
                                   task.id
                                 }
                               >
+
                                 <input
                                   type="checkbox"
                                   checked={
@@ -821,9 +1127,7 @@ function App() {
                                       : ""
                                   }
                                 >
-                                  {
-                                    task.name
-                                  }
+                                  {task.name}
                                 </span>
 
                                 <button
@@ -838,26 +1142,38 @@ function App() {
                                 >
                                   ×
                                 </button>
+
                               </div>
+
                             )
                           )
+
                         )}
+
                       </div>
+
                     </div>
                   );
                 }
               )}
+
             </section>
+
           </>
+
         )}
+
       </main>
 
       <footer>
+
         <p>
           Placement Tracker • Keep
           learning. Keep building. 🚀
         </p>
+
       </footer>
+
     </div>
   );
 }

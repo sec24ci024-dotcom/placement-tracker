@@ -1,11 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
-
-const User = require("./models/User");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,14 +10,54 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+/* =========================
+   MONGODB CONNECTION
+========================= */
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("MongoDB connected successfully");
   })
   .catch((error) => {
-    console.error("MongoDB connection error:", error.message);
+    console.error("MongoDB connection error:", error);
   });
+
+/* =========================
+   USER MODEL
+========================= */
+
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+
+    password: {
+      type: String,
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const User = mongoose.model("User", userSchema);
+
+/* =========================
+   TASK MODEL
+========================= */
 
 const taskSchema = new mongoose.Schema(
   {
@@ -28,13 +65,21 @@ const taskSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+
     name: {
       type: String,
       required: true,
     },
+
     completed: {
       type: Boolean,
       default: false,
+    },
+
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
   },
   {
@@ -44,7 +89,46 @@ const taskSchema = new mongoose.Schema(
 
 const Task = mongoose.model("Task", taskSchema);
 
-// ==================== REGISTER ====================
+/* =========================
+   JWT MIDDLEWARE
+========================= */
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({
+      message: "Access denied. No token provided.",
+    });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({
+      message: "Access denied. Invalid token.",
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    req.user = decoded;
+
+    next();
+  } catch (error) {
+    return res.status(403).json({
+      message: "Invalid or expired token.",
+    });
+  }
+};
+
+/* =========================
+   AUTH - REGISTER
+========================= */
 
 app.post("/api/auth/register", async (req, res) => {
   try {
@@ -52,34 +136,36 @@ app.post("/api/auth/register", async (req, res) => {
 
     if (!name || !email || !password) {
       return res.status(400).json({
-        message: "All fields are required",
+        message: "Name, email and password are required.",
       });
     }
 
     if (password.length < 6) {
       return res.status(400).json({
-        message: "Password must be at least 6 characters",
+        message:
+          "Password must be at least 6 characters.",
       });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({
+      email: email.toLowerCase(),
+    });
 
     if (existingUser) {
-      return res.status(400).json({
-        message: "User already exists",
+      return res.status(409).json({
+        message: "User already exists.",
       });
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name,
-      email,
-      password: hashedPassword,
+      email: email.toLowerCase(),
+      password,
     });
 
     res.status(201).json({
       message: "User registered successfully",
+
       user: {
         id: user._id,
         name: user.name,
@@ -87,15 +173,17 @@ app.post("/api/auth/register", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Register error:", error);
+    console.error("Registration error:", error);
 
     res.status(500).json({
-      message: "Registration failed",
+      message: "Server error during registration.",
     });
   }
 });
 
-// ==================== LOGIN ====================
+/* =========================
+   AUTH - LOGIN
+========================= */
 
 app.post("/api/auth/login", async (req, res) => {
   try {
@@ -103,32 +191,30 @@ app.post("/api/auth/login", async (req, res) => {
 
     if (!email || !password) {
       return res.status(400).json({
-        message: "Email and password are required",
+        message: "Email and password are required.",
       });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      email: email.toLowerCase(),
+    });
 
     if (!user) {
       return res.status(401).json({
-        message: "Invalid email or password",
+        message: "Invalid email or password.",
       });
     }
 
-    const passwordMatch = await bcrypt.compare(
-      password,
-      user.password
-    );
-
-    if (!passwordMatch) {
+    if (user.password !== password) {
       return res.status(401).json({
-        message: "Invalid email or password",
+        message: "Invalid email or password.",
       });
     }
 
     const token = jwt.sign(
       {
-        userId: user._id,
+        userId: user._id.toString(),
+        email: user.email,
       },
       process.env.JWT_SECRET,
       {
@@ -138,7 +224,9 @@ app.post("/api/auth/login", async (req, res) => {
 
     res.json({
       message: "Login successful",
+
       token,
+
       user: {
         id: user._id,
         name: user.name,
@@ -149,102 +237,150 @@ app.post("/api/auth/login", async (req, res) => {
     console.error("Login error:", error);
 
     res.status(500).json({
-      message: "Login failed",
+      message: "Server error during login.",
     });
   }
 });
 
-// ==================== TASK APIs ====================
+/* =========================
+   GET TASKS
+   PROTECTED ROUTE
+========================= */
 
-// GET all tasks
-app.get("/api/tasks", async (req, res) => {
-  try {
-    const tasks = await Task.find().sort({
-      createdAt: 1,
-    });
+app.get(
+  "/api/tasks",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const tasks = await Task.find({
+        userId: req.user.userId,
+      }).sort({ createdAt: 1 });
 
-    res.json(
-      tasks.map((task) => ({
-        id: task._id,
-        category: task.category,
-        name: task.name,
-        completed: task.completed,
-      }))
-    );
-  } catch (error) {
-    res.status(500).json({
-      message: "Failed to fetch tasks",
-    });
-  }
-});
+      res.json(tasks);
+    } catch (error) {
+      console.error("Get tasks error:", error);
 
-// ADD task
-app.post("/api/tasks", async (req, res) => {
-  try {
-    const { category, name, completed } = req.body;
-
-    const newTask = await Task.create({
-      category,
-      name,
-      completed: completed || false,
-    });
-
-    res.status(201).json({
-      id: newTask._id,
-      category: newTask.category,
-      name: newTask.name,
-      completed: newTask.completed,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Failed to add task",
-    });
-  }
-});
-
-// DELETE task
-app.delete("/api/tasks/:id", async (req, res) => {
-  try {
-    await Task.findByIdAndDelete(req.params.id);
-
-    res.json({
-      message: "Task deleted successfully",
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Failed to delete task",
-    });
-  }
-});
-
-// TOGGLE completion
-app.put("/api/tasks/:id", async (req, res) => {
-  try {
-    const task = await Task.findById(req.params.id);
-
-    if (!task) {
-      return res.status(404).json({
-        message: "Task not found",
+      res.status(500).json({
+        message: "Failed to fetch tasks.",
       });
     }
-
-    task.completed = !task.completed;
-
-    await task.save();
-
-    res.json({
-      message: "Task updated successfully",
-      completed: task.completed,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Failed to update task",
-    });
   }
-});
+);
 
-// ==================== SERVER ====================
+/* =========================
+   ADD TASK
+   PROTECTED ROUTE
+========================= */
+
+app.post(
+  "/api/tasks",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { category, name, completed } =
+        req.body;
+
+      if (!category || !name) {
+        return res.status(400).json({
+          message:
+            "Category and task name are required.",
+        });
+      }
+
+      const task = await Task.create({
+        category,
+        name,
+        completed: completed || false,
+        userId: req.user.userId,
+      });
+
+      res.status(201).json(task);
+    } catch (error) {
+      console.error("Add task error:", error);
+
+      res.status(500).json({
+        message: "Failed to add task.",
+      });
+    }
+  }
+);
+
+/* =========================
+   DELETE TASK
+   PROTECTED ROUTE
+========================= */
+
+app.delete(
+  "/api/tasks/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const task = await Task.findOneAndDelete({
+        _id: req.params.id,
+        userId: req.user.userId,
+      });
+
+      if (!task) {
+        return res.status(404).json({
+          message: "Task not found.",
+        });
+      }
+
+      res.json({
+        message: "Task deleted successfully.",
+      });
+    } catch (error) {
+      console.error("Delete task error:", error);
+
+      res.status(500).json({
+        message: "Failed to delete task.",
+      });
+    }
+  }
+);
+
+/* =========================
+   TOGGLE TASK
+   PROTECTED ROUTE
+========================= */
+
+app.put(
+  "/api/tasks/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const task = await Task.findOne({
+        _id: req.params.id,
+        userId: req.user.userId,
+      });
+
+      if (!task) {
+        return res.status(404).json({
+          message: "Task not found.",
+        });
+      }
+
+      task.completed = !task.completed;
+
+      await task.save();
+
+      res.json(task);
+    } catch (error) {
+      console.error("Update task error:", error);
+
+      res.status(500).json({
+        message: "Failed to update task.",
+      });
+    }
+  }
+);
+
+/* =========================
+   START SERVER
+========================= */
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(
+    `Server running on http://localhost:${PORT}`
+  );
 });
