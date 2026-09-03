@@ -57,7 +57,9 @@ function App() {
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem("user");
 
-    return savedUser ? JSON.parse(savedUser) : null;
+    return savedUser
+      ? JSON.parse(savedUser)
+      : null;
   });
 
   // Get JWT token
@@ -75,6 +77,19 @@ function App() {
     };
   };
 
+  // Handle session expiration
+  const handleSessionExpired = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    setUser(null);
+    setCategories(initialCategories);
+
+    setError(
+      "Your session has expired. Please login again."
+    );
+  };
+
   // Load tasks
   useEffect(() => {
     if (!user) {
@@ -85,8 +100,7 @@ function App() {
     const token = getToken();
 
     if (!token) {
-      setError("Session expired. Please login again.");
-      setUser(null);
+      handleSessionExpired();
       setLoading(false);
       return;
     }
@@ -148,12 +162,7 @@ function App() {
           error.message ===
           "SESSION_EXPIRED"
         ) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-
-          setUser(null);
-          setCategories(initialCategories);
-
+          handleSessionExpired();
           setError(
             "Your session has expired. Please login again."
           );
@@ -232,16 +241,43 @@ function App() {
     categoryId,
     taskId
   ) => {
+    const category =
+      categories.find(
+        (item) =>
+          item.id === categoryId
+      );
+
+    const task =
+      category?.tasks.find(
+        (item) =>
+          item.id === taskId
+      );
+
+    if (!task) {
+      return;
+    }
+
+    const newCompleted =
+      !task.completed;
+
     try {
       const response = await fetch(
         `${API_URL}/${taskId}`,
         {
           method: "PUT",
-          headers: getAuthHeaders(),
+
+          headers:
+            getAuthHeaders(),
+
+          body: JSON.stringify({
+            completed:
+              newCompleted,
+          }),
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (
         response.status === 401 ||
@@ -290,15 +326,7 @@ function App() {
         error.message ===
         "SESSION_EXPIRED"
       ) {
-        localStorage.removeItem(
-          "token"
-        );
-
-        localStorage.removeItem(
-          "user"
-        );
-
-        setUser(null);
+        handleSessionExpired();
 
         setError(
           "Your session has expired. Please login again."
@@ -321,11 +349,14 @@ function App() {
         `${API_URL}/${taskId}`,
         {
           method: "DELETE",
-          headers: getAuthHeaders(),
+
+          headers:
+            getAuthHeaders(),
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (
         response.status === 401 ||
@@ -368,15 +399,7 @@ function App() {
         error.message ===
         "SESSION_EXPIRED"
       ) {
-        localStorage.removeItem(
-          "token"
-        );
-
-        localStorage.removeItem(
-          "user"
-        );
-
-        setUser(null);
+        handleSessionExpired();
 
         setError(
           "Your session has expired. Please login again."
@@ -473,7 +496,8 @@ function App() {
                       data._id ||
                       data.id,
 
-                    name: data.name,
+                    name:
+                      data.name,
 
                     completed:
                       data.completed,
@@ -498,15 +522,7 @@ function App() {
         error.message ===
         "SESSION_EXPIRED"
       ) {
-        localStorage.removeItem(
-          "token"
-        );
-
-        localStorage.removeItem(
-          "user"
-        );
-
-        setUser(null);
+        handleSessionExpired();
 
         setError(
           "Your session has expired. Please login again."
@@ -534,6 +550,12 @@ function App() {
                 task.id
             )
       );
+
+    if (
+      completedTaskIds.length === 0
+    ) {
+      return;
+    }
 
     try {
       const results =
@@ -603,15 +625,7 @@ function App() {
         error.message ===
         "SESSION_EXPIRED"
       ) {
-        localStorage.removeItem(
-          "token"
-        );
-
-        localStorage.removeItem(
-          "user"
-        );
-
-        setUser(null);
+        handleSessionExpired();
 
         setError(
           "Your session has expired. Please login again."
