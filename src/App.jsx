@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import Auth from "./Auth";
+import { useAuth } from "./AuthContext";
 
 const API_URL = "http://localhost:5000/api/tasks";
 
@@ -44,6 +45,8 @@ const initialCategories = [
 ];
 
 function App() {
+  const { user, token, logout } = useAuth();
+
   const [categories, setCategories] = useState(
     initialCategories
   );
@@ -54,53 +57,28 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem("user");
-
-    return savedUser
-      ? JSON.parse(savedUser)
-      : null;
-  });
-
-  // Get JWT token
-  const getToken = () => {
-    return localStorage.getItem("token");
-  };
-
-  // Headers for protected API requests
   const getAuthHeaders = () => {
-    const token = getToken();
-
     return {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     };
   };
 
-  // Handle session expiration
   const handleSessionExpired = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    logout();
 
-    setUser(null);
     setCategories(initialCategories);
+    setSearch("");
+    setFilter("all");
+    setNewTasks({});
 
     setError(
       "Your session has expired. Please login again."
     );
   };
 
-  // Load tasks
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const token = getToken();
-
-    if (!token) {
-      handleSessionExpired();
+    if (!user || !token) {
       setLoading(false);
       return;
     }
@@ -163,9 +141,6 @@ function App() {
           "SESSION_EXPIRED"
         ) {
           handleSessionExpired();
-          setError(
-            "Your session has expired. Please login again."
-          );
         } else {
           setError(
             "Unable to connect to backend."
@@ -174,9 +149,8 @@ function App() {
 
         setLoading(false);
       });
-  }, [user]);
+  }, [user, token]);
 
-  // Statistics
   const totalTasks = categories.reduce(
     (total, category) =>
       total + category.tasks.length,
@@ -202,33 +176,28 @@ function App() {
           (completedTasks / totalTasks) * 100
         );
 
-  // Search + filter
   const filteredCategories = useMemo(() => {
     return categories.map((category) => ({
       ...category,
 
-      tasks: category.tasks.filter(
-        (task) => {
-          const matchesSearch =
-            task.name
-              .toLowerCase()
-              .includes(
-                search.toLowerCase()
-              );
+      tasks: category.tasks.filter((task) => {
+        const matchesSearch =
+          task.name
+            .toLowerCase()
+            .includes(search.toLowerCase());
 
-          const matchesFilter =
-            filter === "all" ||
-            (filter === "completed" &&
-              task.completed) ||
-            (filter === "pending" &&
-              !task.completed);
+        const matchesFilter =
+          filter === "all" ||
+          (filter === "completed" &&
+            task.completed) ||
+          (filter === "pending" &&
+            !task.completed);
 
-          return (
-            matchesSearch &&
-            matchesFilter
-          );
-        }
-      ),
+        return (
+          matchesSearch &&
+          matchesFilter
+        );
+      }),
     }));
   }, [
     categories,
@@ -236,7 +205,6 @@ function App() {
     filter,
   ]);
 
-  // Toggle task
   const toggleTask = async (
     categoryId,
     taskId
@@ -327,10 +295,6 @@ function App() {
         "SESSION_EXPIRED"
       ) {
         handleSessionExpired();
-
-        setError(
-          "Your session has expired. Please login again."
-        );
       } else {
         setError(
           "Unable to update task."
@@ -339,7 +303,6 @@ function App() {
     }
   };
 
-  // Delete task
   const deleteTask = async (
     categoryId,
     taskId
@@ -400,10 +363,6 @@ function App() {
         "SESSION_EXPIRED"
       ) {
         handleSessionExpired();
-
-        setError(
-          "Your session has expired. Please login again."
-        );
       } else {
         setError(
           "Unable to delete task."
@@ -412,7 +371,6 @@ function App() {
     }
   };
 
-  // Handle task input
   const handleTaskInput = (
     categoryId,
     value
@@ -423,7 +381,6 @@ function App() {
     }));
   };
 
-  // Add task
   const addTask = async (
     categoryId
   ) => {
@@ -523,10 +480,6 @@ function App() {
         "SESSION_EXPIRED"
       ) {
         handleSessionExpired();
-
-        setError(
-          "Your session has expired. Please login again."
-        );
       } else {
         setError(
           "Unable to add task."
@@ -535,7 +488,6 @@ function App() {
     }
   };
 
-  // Clear completed tasks
   const clearCompleted = async () => {
     const completedTaskIds =
       categories.flatMap(
@@ -626,10 +578,6 @@ function App() {
         "SESSION_EXPIRED"
       ) {
         handleSessionExpired();
-
-        setError(
-          "Your session has expired. Please login again."
-        );
       } else {
         setError(
           "Unable to clear completed tasks."
@@ -638,17 +586,8 @@ function App() {
     }
   };
 
-  // Logout
   const handleLogout = () => {
-    localStorage.removeItem(
-      "token"
-    );
-
-    localStorage.removeItem(
-      "user"
-    );
-
-    setUser(null);
+    logout();
 
     setCategories(
       initialCategories
@@ -660,15 +599,8 @@ function App() {
     setError("");
   };
 
-  // Login screen
   if (!user) {
-    return (
-      <Auth
-        onLogin={(loggedInUser) => {
-          setUser(loggedInUser);
-        }}
-      />
-    );
+    return <Auth />;
   }
 
   return (

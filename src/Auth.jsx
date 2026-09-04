@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { useAuth } from "./AuthContext";
 
 const API_URL = "http://localhost:5000/api/auth";
 
 function Auth({ onLogin }) {
+  const { login } = useAuth();
+
   const [isLogin, setIsLogin] = useState(true);
 
   const [name, setName] = useState("");
@@ -49,13 +52,11 @@ function Auth({ onLogin }) {
       }
 
       if (isLogin) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem(
-          "user",
-          JSON.stringify(data.user)
-        );
+        login(data.user, data.token);
 
-        onLogin(data.user);
+        if (onLogin) {
+          onLogin(data.user);
+        }
       } else {
         setMessage(
           "Registration successful! Please login."
@@ -75,13 +76,18 @@ function Auth({ onLogin }) {
   return (
     <div className="auth-page">
       <div className="auth-card">
+
         <div className="auth-header">
           <div className="auth-icon">🚀</div>
 
-          <p className="eyebrow">PLACEMENT PREPARATION</p>
+          <p className="eyebrow">
+            PLACEMENT PREPARATION
+          </p>
 
           <h1>
-            {isLogin ? "Welcome Back" : "Create Account"}
+            {isLogin
+              ? "Welcome Back"
+              : "Create Account"}
           </h1>
 
           <p>
@@ -98,8 +104,10 @@ function Auth({ onLogin }) {
         )}
 
         <form onSubmit={handleSubmit}>
+
           {!isLogin && (
             <div className="auth-field">
+
               <label>Full Name</label>
 
               <input
@@ -111,10 +119,12 @@ function Auth({ onLogin }) {
                 }
                 required
               />
+
             </div>
           )}
 
           <div className="auth-field">
+
             <label>Email</label>
 
             <input
@@ -126,9 +136,11 @@ function Auth({ onLogin }) {
               }
               required
             />
+
           </div>
 
           <div className="auth-field">
+
             <label>Password</label>
 
             <input
@@ -141,6 +153,7 @@ function Auth({ onLogin }) {
               minLength="6"
               required
             />
+
           </div>
 
           <button
@@ -154,9 +167,11 @@ function Auth({ onLogin }) {
               ? "Login"
               : "Create Account"}
           </button>
+
         </form>
 
         <div className="auth-switch">
+
           <span>
             {isLogin
               ? "Don't have an account?"
@@ -170,9 +185,13 @@ function Auth({ onLogin }) {
               setMessage("");
             }}
           >
-            {isLogin ? "Register" : "Login"}
+            {isLogin
+              ? "Register"
+              : "Login"}
           </button>
+
         </div>
+
       </div>
     </div>
   );
