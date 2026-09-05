@@ -3,7 +3,12 @@ import "./App.css";
 import Auth from "./Auth";
 import { useAuth } from "./AuthContext";
 
-const API_URL = "http://localhost:5000/api/tasks";
+import {
+  getTasks,
+  createTask,
+  updateTask,
+  deleteTask as deleteTaskAPI,
+} from "./api";
 
 const initialCategories = [
   {
@@ -57,13 +62,6 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const getAuthHeaders = () => {
-    return {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    };
-  };
-
   const handleSessionExpired = () => {
     logout();
 
@@ -77,6 +75,7 @@ function App() {
     );
   };
 
+  // Load tasks
   useEffect(() => {
     if (!user || !token) {
       setLoading(false);
@@ -86,30 +85,7 @@ function App() {
     setLoading(true);
     setError("");
 
-    fetch(API_URL, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then(async (response) => {
-        const data = await response.json();
-
-        if (
-          response.status === 401 ||
-          response.status === 403
-        ) {
-          throw new Error("SESSION_EXPIRED");
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            data.message || "Failed to fetch tasks"
-          );
-        }
-
-        return data;
-      })
+    getTasks(token)
       .then((tasks) => {
         setCategories((currentCategories) =>
           currentCategories.map((category) => ({
@@ -137,8 +113,8 @@ function App() {
         );
 
         if (
-          error.message ===
-          "SESSION_EXPIRED"
+          error.status === 401 ||
+          error.status === 403
         ) {
           handleSessionExpired();
         } else {
@@ -205,6 +181,7 @@ function App() {
     filter,
   ]);
 
+  // Toggle task
   const toggleTask = async (
     categoryId,
     taskId
@@ -229,39 +206,13 @@ function App() {
       !task.completed;
 
     try {
-      const response = await fetch(
-        `${API_URL}/${taskId}`,
+      const data = await updateTask(
+        taskId,
         {
-          method: "PUT",
-
-          headers:
-            getAuthHeaders(),
-
-          body: JSON.stringify({
-            completed:
-              newCompleted,
-          }),
-        }
+          completed: newCompleted,
+        },
+        token
       );
-
-      const data =
-        await response.json();
-
-      if (
-        response.status === 401 ||
-        response.status === 403
-      ) {
-        throw new Error(
-          "SESSION_EXPIRED"
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to update task"
-        );
-      }
 
       setCategories((current) =>
         current.map((category) =>
@@ -291,8 +242,8 @@ function App() {
       );
 
       if (
-        error.message ===
-        "SESSION_EXPIRED"
+        error.status === 401 ||
+        error.status === 403
       ) {
         handleSessionExpired();
       } else {
@@ -303,39 +254,16 @@ function App() {
     }
   };
 
+  // Delete task
   const deleteTask = async (
     categoryId,
     taskId
   ) => {
     try {
-      const response = await fetch(
-        `${API_URL}/${taskId}`,
-        {
-          method: "DELETE",
-
-          headers:
-            getAuthHeaders(),
-        }
+      await deleteTaskAPI(
+        taskId,
+        token
       );
-
-      const data =
-        await response.json();
-
-      if (
-        response.status === 401 ||
-        response.status === 403
-      ) {
-        throw new Error(
-          "SESSION_EXPIRED"
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to delete task"
-        );
-      }
 
       setCategories((current) =>
         current.map((category) =>
@@ -359,8 +287,8 @@ function App() {
       );
 
       if (
-        error.message ===
-        "SESSION_EXPIRED"
+        error.status === 401 ||
+        error.status === 403
       ) {
         handleSessionExpired();
       } else {
@@ -381,6 +309,7 @@ function App() {
     }));
   };
 
+  // Add task
   const addTask = async (
     categoryId
   ) => {
@@ -401,43 +330,11 @@ function App() {
     }
 
     try {
-      const response = await fetch(
-        API_URL,
-        {
-          method: "POST",
-
-          headers:
-            getAuthHeaders(),
-
-          body: JSON.stringify({
-            category:
-              category.name,
-
-            name: taskName,
-
-            completed: false,
-          }),
-        }
+      const data = await createTask(
+        category.name,
+        taskName,
+        token
       );
-
-      const data =
-        await response.json();
-
-      if (
-        response.status === 401 ||
-        response.status === 403
-      ) {
-        throw new Error(
-          "SESSION_EXPIRED"
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to add task"
-        );
-      }
 
       setCategories((current) =>
         current.map((item) =>
@@ -476,8 +373,8 @@ function App() {
       );
 
       if (
-        error.message ===
-        "SESSION_EXPIRED"
+        error.status === 401 ||
+        error.status === 403
       ) {
         handleSessionExpired();
       } else {
@@ -488,6 +385,7 @@ function App() {
     }
   };
 
+  // Clear completed tasks
   const clearCompleted = async () => {
     const completedTaskIds =
       categories.flatMap(
@@ -510,49 +408,15 @@ function App() {
     }
 
     try {
-      const results =
-        await Promise.all(
-          completedTaskIds.map(
-            (taskId) =>
-              fetch(
-                `${API_URL}/${taskId}`,
-                {
-                  method:
-                    "DELETE",
-
-                  headers:
-                    getAuthHeaders(),
-                }
-              )
-          )
-        );
-
-      const unauthorized =
-        results.some(
-          (response) =>
-            response.status ===
-              401 ||
-            response.status ===
-              403
-        );
-
-      if (unauthorized) {
-        throw new Error(
-          "SESSION_EXPIRED"
-        );
-      }
-
-      const failed =
-        results.some(
-          (response) =>
-            !response.ok
-        );
-
-      if (failed) {
-        throw new Error(
-          "Failed to clear completed tasks"
-        );
-      }
+      await Promise.all(
+        completedTaskIds.map(
+          (taskId) =>
+            deleteTaskAPI(
+              taskId,
+              token
+            )
+        )
+      );
 
       setCategories((current) =>
         current.map(
@@ -574,8 +438,8 @@ function App() {
       );
 
       if (
-        error.message ===
-        "SESSION_EXPIRED"
+        error.status === 401 ||
+        error.status === 403
       ) {
         handleSessionExpired();
       } else {
