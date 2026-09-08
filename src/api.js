@@ -5,7 +5,11 @@ async function request(endpoint, options = {}, token) {
         ...options,
         headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            ...(token
+                ? {
+                      Authorization: `Bearer ${token}`,
+                  }
+                : {}),
             ...options.headers,
         },
     });
@@ -23,6 +27,27 @@ async function request(endpoint, options = {}, token) {
     }
 
     return data;
+}
+
+export function loginUser(email, password) {
+    return request("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+            email,
+            password,
+        }),
+    });
+}
+
+export function registerUser(name, email, password) {
+    return request("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+            name,
+            email,
+            password,
+        }),
+    });
 }
 
 export function getTasks(token) {

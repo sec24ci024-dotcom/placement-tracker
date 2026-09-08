@@ -1,200 +1,229 @@
 import { useState } from "react";
 import { useAuth } from "./AuthContext";
 
-const API_URL = "http://localhost:5000/api/auth";
+import {
+    loginUser,
+    registerUser
+} from "./api";
 
 function Auth({ onLogin }) {
-  const { login } = useAuth();
 
-  const [isLogin, setIsLogin] = useState(true);
+    const { login } = useAuth();
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+    const [isLogin, setIsLogin] = useState(true);
 
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+    const [name, setName] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+    const [email, setEmail] = useState("");
 
-    setMessage("");
-    setLoading(true);
+    const [password, setPassword] = useState("");
 
-    try {
-      const endpoint = isLogin
-        ? `${API_URL}/login`
-        : `${API_URL}/register`;
+    const [message, setMessage] = useState("");
 
-      const body = isLogin
-        ? {
-            email,
-            password,
-          }
-        : {
-            name,
-            email,
-            password,
-          };
+    const [loading, setLoading] = useState(false);
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
+    async function handleSubmit(event) {
 
-      const data = await response.json();
+        event.preventDefault();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Something went wrong");
-      }
+        setMessage("");
 
-      if (isLogin) {
-        login(data.user, data.token);
+        setLoading(true);
 
-        if (onLogin) {
-          onLogin(data.user);
-        }
-      } else {
-        setMessage(
-          "Registration successful! Please login."
-        );
+        try {
 
-        setIsLogin(true);
-        setName("");
-        setPassword("");
-      }
-    } catch (error) {
-      setMessage(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+            if (isLogin) {
 
-  return (
-    <div className="auth-page">
-      <div className="auth-card">
+                const data = await loginUser(
+                    email,
+                    password
+                );
 
-        <div className="auth-header">
-          <div className="auth-icon">🚀</div>
+                login(
+                    data.user,
+                    data.token
+                );
 
-          <p className="eyebrow">
-            PLACEMENT PREPARATION
-          </p>
-
-          <h1>
-            {isLogin
-              ? "Welcome Back"
-              : "Create Account"}
-          </h1>
-
-          <p>
-            {isLogin
-              ? "Login to continue your preparation."
-              : "Start tracking your placement journey."}
-          </p>
-        </div>
-
-        {message && (
-          <div className="auth-message">
-            {message}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-
-          {!isLogin && (
-            <div className="auth-field">
-
-              <label>Full Name</label>
-
-              <input
-                type="text"
-                placeholder="Enter your name"
-                value={name}
-                onChange={(e) =>
-                  setName(e.target.value)
+                if (onLogin) {
+                    onLogin(data.user);
                 }
-                required
-              />
+
+            } else {
+
+                await registerUser(
+                    name,
+                    email,
+                    password
+                );
+
+                setMessage(
+                    "Registration successful! Please login."
+                );
+
+                setIsLogin(true);
+
+                setName("");
+
+                setPassword("");
+            }
+
+        } catch (error) {
+
+            setMessage(
+                error.message ||
+                "Something went wrong"
+            );
+
+        } finally {
+
+            setLoading(false);
+        }
+    }
+
+    function switchMode() {
+
+        setIsLogin(!isLogin);
+
+        setMessage("");
+
+        setName("");
+
+        setEmail("");
+
+        setPassword("");
+    }
+
+    return (
+        <div className="auth-page">
+
+            <div className="auth-card">
+
+                <div className="auth-header">
+
+                    <div className="auth-icon">
+                        🚀
+                    </div>
+
+                    <p className="eyebrow">
+                        PLACEMENT TRACKER
+                    </p>
+
+                    <h1>
+                        {isLogin
+                            ? "Welcome Back"
+                            : "Create Account"}
+                    </h1>
+
+                    <p>
+                        {isLogin
+                            ? "Login to continue your placement preparation."
+                            : "Create an account to start tracking your preparation."}
+                    </p>
+
+                </div>
+
+                {message && (
+                    <div className="auth-message">
+                        {message}
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit}>
+
+                    {!isLogin && (
+                        <div className="auth-field">
+
+                            <label>
+                                Full Name
+                            </label>
+
+                            <input
+                                type="text"
+                                placeholder="Enter your full name"
+                                value={name}
+                                onChange={(event) =>
+                                    setName(event.target.value)
+                                }
+                                required
+                            />
+
+                        </div>
+                    )}
+
+                    <div className="auth-field">
+
+                        <label>
+                            Email
+                        </label>
+
+                        <input
+                            type="email"
+                            placeholder="Enter your email"
+                            value={email}
+                            onChange={(event) =>
+                                setEmail(event.target.value)
+                            }
+                            required
+                        />
+
+                    </div>
+
+                    <div className="auth-field">
+
+                        <label>
+                            Password
+                        </label>
+
+                        <input
+                            type="password"
+                            placeholder="Enter your password"
+                            value={password}
+                            onChange={(event) =>
+                                setPassword(event.target.value)
+                            }
+                            minLength="6"
+                            required
+                        />
+
+                    </div>
+
+                    <button
+                        type="submit"
+                        className="auth-submit"
+                        disabled={loading}
+                    >
+                        {loading
+                            ? "Please wait..."
+                            : isLogin
+                                ? "Login"
+                                : "Create Account"}
+                    </button>
+
+                </form>
+
+                <div className="auth-switch">
+
+                    <span>
+                        {isLogin
+                            ? "Don't have an account?"
+                            : "Already have an account?"}
+                    </span>
+
+                    <button
+                        type="button"
+                        onClick={switchMode}
+                    >
+                        {isLogin
+                            ? "Register"
+                            : "Login"}
+                    </button>
+
+                </div>
 
             </div>
-          )}
-
-          <div className="auth-field">
-
-            <label>Email</label>
-
-            <input
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) =>
-                setEmail(e.target.value)
-              }
-              required
-            />
-
-          </div>
-
-          <div className="auth-field">
-
-            <label>Password</label>
-
-            <input
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) =>
-                setPassword(e.target.value)
-              }
-              minLength="6"
-              required
-            />
-
-          </div>
-
-          <button
-            className="auth-submit"
-            type="submit"
-            disabled={loading}
-          >
-            {loading
-              ? "Please wait..."
-              : isLogin
-              ? "Login"
-              : "Create Account"}
-          </button>
-
-        </form>
-
-        <div className="auth-switch">
-
-          <span>
-            {isLogin
-              ? "Don't have an account?"
-              : "Already have an account?"}
-          </span>
-
-          <button
-            type="button"
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setMessage("");
-            }}
-          >
-            {isLogin
-              ? "Register"
-              : "Login"}
-          </button>
 
         </div>
-
-      </div>
-    </div>
-  );
+    );
 }
 
 export default Auth;
