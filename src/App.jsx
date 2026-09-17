@@ -463,7 +463,7 @@ function App() {
     setError("");
   };
 
-  if (!user) {
+  if (!user || !token) {
     return <Auth />;
   }
 

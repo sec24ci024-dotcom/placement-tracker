@@ -3,6 +3,7 @@ import { createContext, useContext, useState } from "react";
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
+
     const [user, setUser] = useState(() => {
         const savedUser = localStorage.getItem("user");
 
@@ -16,14 +17,23 @@ export function AuthProvider({ children }) {
     });
 
     function login(userData, jwtToken) {
-        localStorage.setItem("user", JSON.stringify(userData));
-        localStorage.setItem("token", jwtToken);
+
+        localStorage.setItem(
+            "user",
+            JSON.stringify(userData)
+        );
+
+        localStorage.setItem(
+            "token",
+            jwtToken
+        );
 
         setUser(userData);
         setToken(jwtToken);
     }
 
     function logout() {
+
         localStorage.removeItem("user");
         localStorage.removeItem("token");
 
