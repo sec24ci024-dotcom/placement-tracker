@@ -541,9 +541,16 @@ function App() {
 
         {loading ? (
 
-          <div className="loading">
-            Loading your placement
-            tasks...
+          <div className="loading-screen">
+
+            <div className="loading-spinner"></div>
+
+            <h2>Loading your tracker</h2>
+
+            <p>
+              Fetching your placement preparation tasks...
+            </p>
+
           </div>
 
         ) : (
