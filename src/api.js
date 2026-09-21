@@ -151,3 +151,21 @@ export function deleteTask(
         token
     );
 }
+
+export function askAI(
+    message,
+    token
+) {
+
+    return request(
+        "/ai/assistant",
+        {
+            method: "POST",
+
+            body: JSON.stringify({
+                message,
+            }),
+        },
+        token
+    );
+}

@@ -811,3 +811,130 @@ footer {
         transform: rotate(360deg);
     }
 }
+
+/* =========================
+   AI ASSISTANT
+========================= */
+
+.ai-assistant {
+    background: white;
+    border: 1px solid #e5eaf1;
+    border-radius: 20px;
+    padding: 24px;
+    margin: 25px 0;
+    box-shadow: 0 7px 25px rgba(15, 23, 42, 0.05);
+}
+
+.ai-assistant-header {
+    margin-bottom: 18px;
+}
+
+.ai-assistant-header h2 {
+    margin: 0 0 6px;
+    font-size: 23px;
+}
+
+.ai-assistant-header p:last-child {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.ai-assistant-input {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.ai-assistant-input textarea {
+    flex: 1;
+    min-height: 90px;
+    resize: vertical;
+    padding: 13px 14px;
+    border: 1px solid #dce3ed;
+    border-radius: 12px;
+    outline: none;
+    background: #f8fafc;
+    color: #172033;
+    font: inherit;
+    line-height: 1.5;
+    transition: 0.2s ease;
+}
+
+.ai-assistant-input textarea:focus {
+    background: white;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.ai-assistant-input button {
+    align-self: flex-end;
+    min-width: 110px;
+    border: none;
+    border-radius: 11px;
+    padding: 12px 18px;
+    background: linear-gradient(
+        135deg,
+        #2563eb,
+        #1d4ed8
+    );
+    color: white;
+    font-weight: 700;
+    transition: 0.2s ease;
+}
+
+.ai-assistant-input button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
+}
+
+.ai-assistant-input button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.ai-error {
+    margin-top: 14px;
+    padding: 11px 13px;
+    border-radius: 10px;
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    font-size: 13px;
+}
+
+.ai-response {
+    margin-top: 18px;
+    padding: 18px;
+    border-radius: 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.ai-response h3 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    color: #172033;
+}
+
+.ai-response-text {
+    color: #334155;
+    font-size: 14px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+}
+
+@media (max-width: 550px) {
+    .ai-assistant {
+        padding: 18px;
+    }
+
+    .ai-assistant-input {
+        flex-direction: column;
+    }
+
+    .ai-assistant-input button {
+        width: 100%;
+        align-self: stretch;
+    }
+}

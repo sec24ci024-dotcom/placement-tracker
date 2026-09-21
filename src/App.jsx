@@ -8,6 +8,7 @@ import {
   createTask,
   updateTask,
   deleteTask as deleteTaskAPI,
+  askAI,
 } from "./api";
 
 const initialCategories = [
@@ -61,6 +62,11 @@ function App() {
   const [newTasks, setNewTasks] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [aiMessage, setAiMessage] = useState("");
+  const [aiReply, setAiReply] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
 
   const handleSessionExpired = () => {
     logout();
@@ -385,6 +391,53 @@ function App() {
     }
   };
 
+  // Ask AI assistant
+  const handleAskAI = async () => {
+
+    const message = aiMessage.trim();
+
+    if (!message || aiLoading) {
+      return;
+    }
+
+    setAiLoading(true);
+    setAiError("");
+    setAiReply("");
+
+    try {
+
+      const data = await askAI(
+        message,
+        token
+      );
+
+      setAiReply(data.reply || "No response received.");
+
+    } catch (error) {
+
+      console.error(
+        "AI assistant error:",
+        error
+      );
+
+      if (
+        error.status === 401 ||
+        error.status === 403
+      ) {
+        handleSessionExpired();
+      } else {
+        setAiError(
+          error.message ||
+          "Unable to get AI response."
+        );
+      }
+
+    } finally {
+
+      setAiLoading(false);
+    }
+  };
+
   // Clear completed tasks
   const clearCompleted = async () => {
     const completedTaskIds =
@@ -605,6 +658,87 @@ function App() {
                   : "Start completing tasks to build momentum."}
 
               </p>
+
+            </section>
+
+            <section className="ai-assistant">
+
+              <div className="ai-assistant-header">
+
+                <div>
+
+                  <p className="small-label">
+                    AI PLACEMENT ASSISTANT
+                  </p>
+
+                  <h2>
+                    Ask AI for placement guidance
+                  </h2>
+
+                  <p>
+                    Get help with DSA, aptitude,
+                    interviews, projects and more.
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="ai-assistant-input">
+
+                <textarea
+                  placeholder="Ask something like: Give me a beginner DSA question..."
+                  value={aiMessage}
+                  onChange={(e) =>
+                    setAiMessage(e.target.value)
+                  }
+                  onKeyDown={(e) => {
+
+                    if (
+                      e.key === "Enter" &&
+                      !e.shiftKey
+                    ) {
+                      e.preventDefault();
+                      handleAskAI();
+                    }
+
+                  }}
+                  rows={3}
+                />
+
+                <button
+                  onClick={handleAskAI}
+                  disabled={
+                    aiLoading ||
+                    !aiMessage.trim()
+                  }
+                >
+                  {aiLoading
+                    ? "Thinking..."
+                    : "Ask AI"}
+                </button>
+
+              </div>
+
+              {aiError && (
+                <div className="ai-error">
+                  {aiError}
+                </div>
+              )}
+
+              {aiReply && (
+                <div className="ai-response">
+
+                  <h3>
+                    AI Response
+                  </h3>
+
+                  <div className="ai-response-text">
+                    {aiReply}
+                  </div>
+
+                </div>
+              )}
 
             </section>
 

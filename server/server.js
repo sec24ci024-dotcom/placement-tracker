@@ -4,10 +4,15 @@ const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const dotenv = require("dotenv");
+const OpenAI = require("openai");
 
 dotenv.config();
 
 const app = express();
+
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+});
 
 app.use(cors());
 app.use(express.json());
@@ -494,6 +499,50 @@ app.delete(
 
             res.status(500).json({
                 message: "Server error"
+            });
+        }
+    }
+);
+
+
+// =========================
+// AI Assistant
+// =========================
+
+app.post(
+    "/api/ai/assistant",
+    authenticateToken,
+    async (req, res) => {
+
+        try {
+
+            const { message } = req.body;
+
+            if (!message || !message.trim()) {
+
+                return res.status(400).json({
+                    message: "Message is required"
+                });
+
+            }
+
+            const response = await openai.responses.create({
+                model: "gpt-5.6-luna",
+                instructions:
+                    "You are an AI placement preparation assistant. Help the user with DSA, coding, aptitude, SQL, interview preparation, projects, and placement preparation. Give simple, practical, beginner-friendly answers.",
+                input: message.trim()
+            });
+
+            res.json({
+                reply: response.output_text
+            });
+
+        } catch (error) {
+
+            console.error("AI assistant error:", error);
+
+            res.status(500).json({
+                message: "Unable to get AI response"
             });
         }
     }
