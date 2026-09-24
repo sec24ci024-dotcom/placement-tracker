@@ -154,6 +154,7 @@ export function deleteTask(
 
 export function askAI(
     message,
+    progress,
     token
 ) {
 
@@ -164,6 +165,7 @@ export function askAI(
 
             body: JSON.stringify({
                 message,
+                progress,
             }),
         },
         token

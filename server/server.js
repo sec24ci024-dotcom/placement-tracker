@@ -4,23 +4,22 @@ const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const dotenv = require("dotenv");
-const OpenAI = require("openai");
+const { Ollama } = require("ollama");
 
 dotenv.config();
 
 const app = express();
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
-
 app.use(cors());
 app.use(express.json());
 
+const ollama = new Ollama({
+    host: "http://127.0.0.1:11434"
+});
 
-// =========================
+// ===============================
 // MongoDB Connection
-// =========================
+// ===============================
 
 mongoose
     .connect(process.env.MONGO_URI)
@@ -28,13 +27,12 @@ mongoose
         console.log("MongoDB connected successfully");
     })
     .catch((error) => {
-        console.error("MongoDB connection error:", error);
+        console.error("MongoDB connection error:", error.message);
     });
 
-
-// =========================
+// ===============================
 // User Schema
-// =========================
+// ===============================
 
 const userSchema = new mongoose.Schema(
     {
@@ -46,9 +44,7 @@ const userSchema = new mongoose.Schema(
         email: {
             type: String,
             required: true,
-            unique: true,
-            lowercase: true,
-            trim: true
+            unique: true
         },
 
         password: {
@@ -63,13 +59,18 @@ const userSchema = new mongoose.Schema(
 
 const User = mongoose.model("User", userSchema);
 
-
-// =========================
+// ===============================
 // Task Schema
-// =========================
+// ===============================
 
 const taskSchema = new mongoose.Schema(
     {
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true
+        },
+
         category: {
             type: String,
             required: true
@@ -83,12 +84,6 @@ const taskSchema = new mongoose.Schema(
         completed: {
             type: Boolean,
             default: false
-        },
-
-        userId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-            required: true
         }
     },
     {
@@ -98,13 +93,11 @@ const taskSchema = new mongoose.Schema(
 
 const Task = mongoose.model("Task", taskSchema);
 
-
-// =========================
+// ===============================
 // JWT Authentication
-// =========================
+// ===============================
 
 function authenticateToken(req, res, next) {
-
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -122,7 +115,6 @@ function authenticateToken(req, res, next) {
     }
 
     try {
-
         const decoded = jwt.verify(
             token,
             process.env.JWT_SECRET
@@ -131,312 +123,264 @@ function authenticateToken(req, res, next) {
         req.user = decoded;
 
         next();
-
     } catch (error) {
-
-        return res.status(403).json({
+        return res.status(401).json({
             message: "Invalid or expired token"
         });
     }
 }
 
-
-// =========================
+// ===============================
 // Register
-// =========================
+// ===============================
 
 app.post("/api/auth/register", async (req, res) => {
-
     try {
-
-        const { name, email, password } = req.body;
+        const {
+            name,
+            email,
+            password
+        } = req.body;
 
         if (!name || !email || !password) {
-
             return res.status(400).json({
-                message: "Name, email and password are required"
+                message: "All fields are required"
             });
         }
 
-        if (password.length < 6) {
-
-            return res.status(400).json({
-                message: "Password must be at least 6 characters"
-            });
-        }
-
-        const normalizedEmail =
-            email.trim().toLowerCase();
-
-        const existingUser =
-            await User.findOne({
-                email: normalizedEmail
-            });
+        const existingUser = await User.findOne({
+            email: email.toLowerCase()
+        });
 
         if (existingUser) {
-
-            return res.status(400).json({
+            return res.status(409).json({
                 message: "User already exists"
             });
         }
 
-
-        // Hash password before storing
-        const hashedPassword =
-            await bcrypt.hash(password, 10);
-
+        const hashedPassword = await bcrypt.hash(
+            password,
+            10
+        );
 
         const user = await User.create({
-            name: name.trim(),
-            email: normalizedEmail,
+            name,
+            email: email.toLowerCase(),
             password: hashedPassword
         });
 
+        const token = jwt.sign(
+            {
+                userId: user._id,
+                email: user.email
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: "1d"
+            }
+        );
 
         res.status(201).json({
-            message: "Registration successful",
-
             user: {
                 id: user._id,
                 name: user.name,
                 email: user.email
-            }
+            },
+            token
         });
-
     } catch (error) {
-
-        console.error("Registration error:", error);
+        console.error("Registration error:", error.message);
 
         res.status(500).json({
-            message: "Server error"
+            message: "Server error during registration"
         });
     }
 });
 
-
-// =========================
+// ===============================
 // Login
-// =========================
+// ===============================
 
 app.post("/api/auth/login", async (req, res) => {
-
     try {
-
-        const { email, password } = req.body;
+        const {
+            email,
+            password
+        } = req.body;
 
         if (!email || !password) {
-
             return res.status(400).json({
                 message: "Email and password are required"
             });
         }
 
-        const normalizedEmail =
-            email.trim().toLowerCase();
-
-        const user =
-            await User.findOne({
-                email: normalizedEmail
-            });
+        const user = await User.findOne({
+            email: email.toLowerCase()
+        });
 
         if (!user) {
-
             return res.status(401).json({
                 message: "Invalid email or password"
             });
         }
 
-
         let passwordMatch = false;
 
-
-        // Check whether password is already hashed
-        const isBcryptHash =
+        const isBcryptPassword =
             user.password.startsWith("$2a$") ||
             user.password.startsWith("$2b$") ||
             user.password.startsWith("$2y$");
 
-
-        if (isBcryptHash) {
-
-            passwordMatch =
-                await bcrypt.compare(
-                    password,
-                    user.password
-                );
-
+        if (isBcryptPassword) {
+            passwordMatch = await bcrypt.compare(
+                password,
+                user.password
+            );
         } else {
+            passwordMatch = password === user.password;
 
-            // Support users created before Day 21
-            passwordMatch =
-                password === user.password;
-
-
-            // Convert old plain-text password
-            // into a secure bcrypt password
             if (passwordMatch) {
-
-                user.password =
-                    await bcrypt.hash(
-                        password,
-                        10
-                    );
+                user.password = await bcrypt.hash(
+                    password,
+                    10
+                );
 
                 await user.save();
             }
         }
 
-
         if (!passwordMatch) {
-
             return res.status(401).json({
                 message: "Invalid email or password"
             });
         }
 
-
-        // Create JWT
-        const token =
-            jwt.sign(
-                {
-                    userId: user._id.toString(),
-                    email: user.email
-                },
-                process.env.JWT_SECRET,
-                {
-                    expiresIn: "1d"
-                }
-            );
-
+        const token = jwt.sign(
+            {
+                userId: user._id,
+                email: user.email
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: "1d"
+            }
+        );
 
         res.json({
-
-            message: "Login successful",
-
-            token,
-
             user: {
                 id: user._id,
                 name: user.name,
                 email: user.email
-            }
+            },
+            token
         });
-
     } catch (error) {
-
-        console.error("Login error:", error);
+        console.error("Login error:", error.message);
 
         res.status(500).json({
-            message: "Server error"
+            message: "Server error during login"
         });
     }
 });
 
-
-// =========================
+// ===============================
 // Get Tasks
-// =========================
+// ===============================
 
 app.get(
     "/api/tasks",
     authenticateToken,
     async (req, res) => {
-
         try {
-
-            const tasks =
-                await Task.find({
-                    userId: req.user.userId
-                });
+            const tasks = await Task.find({
+                userId: req.user.userId
+            }).sort({
+                createdAt: 1
+            });
 
             res.json(tasks);
-
         } catch (error) {
-
-            console.error("Get tasks error:", error);
+            console.error(
+                "Get tasks error:",
+                error.message
+            );
 
             res.status(500).json({
-                message: "Server error"
+                message: "Unable to fetch tasks"
             });
         }
     }
 );
 
-
-// =========================
+// ===============================
 // Add Task
-// =========================
+// ===============================
 
 app.post(
     "/api/tasks",
     authenticateToken,
     async (req, res) => {
-
         try {
-
-            const { category, name } = req.body;
+            const {
+                category,
+                name
+            } = req.body;
 
             if (!category || !name) {
-
                 return res.status(400).json({
                     message: "Category and task name are required"
                 });
             }
 
-            const task =
-                await Task.create({
-
-                    category,
-
-                    name,
-
-                    completed: false,
-
-                    userId: req.user.userId
-                });
+            const task = await Task.create({
+                userId: req.user.userId,
+                category,
+                name,
+                completed: false
+            });
 
             res.status(201).json(task);
-
         } catch (error) {
-
-            console.error("Add task error:", error);
+            console.error(
+                "Add task error:",
+                error.message
+            );
 
             res.status(500).json({
-                message: "Server error"
+                message: "Unable to add task"
             });
         }
     }
 );
 
-
-// =========================
+// ===============================
 // Update Task
-// =========================
+// ===============================
 
 app.put(
     "/api/tasks/:id",
     authenticateToken,
     async (req, res) => {
-
         try {
+            const {
+                id
+            } = req.params;
 
-            const { id } = req.params;
+            const {
+                name,
+                completed
+            } = req.body;
 
-            const { name, completed } = req.body;
-
-            const task =
-                await Task.findOne({
-                    _id: id,
-                    userId: req.user.userId
-                });
+            const task = await Task.findOne({
+                _id: id,
+                userId: req.user.userId
+            });
 
             if (!task) {
-
                 return res.status(404).json({
                     message: "Task not found"
                 });
             }
-
 
             if (name !== undefined) {
                 task.name = name;
@@ -446,44 +390,41 @@ app.put(
                 task.completed = completed;
             }
 
-
             await task.save();
 
             res.json(task);
-
         } catch (error) {
-
-            console.error("Update task error:", error);
+            console.error(
+                "Update task error:",
+                error.message
+            );
 
             res.status(500).json({
-                message: "Server error"
+                message: "Unable to update task"
             });
         }
     }
 );
 
-
-// =========================
+// ===============================
 // Delete Task
-// =========================
+// ===============================
 
 app.delete(
     "/api/tasks/:id",
     authenticateToken,
     async (req, res) => {
-
         try {
+            const {
+                id
+            } = req.params;
 
-            const { id } = req.params;
-
-            const task =
-                await Task.findOneAndDelete({
-                    _id: id,
-                    userId: req.user.userId
-                });
+            const task = await Task.findOneAndDelete({
+                _id: id,
+                userId: req.user.userId
+            });
 
             if (!task) {
-
                 return res.status(404).json({
                     message: "Task not found"
                 });
@@ -492,73 +433,153 @@ app.delete(
             res.json({
                 message: "Task deleted successfully"
             });
-
         } catch (error) {
-
-            console.error("Delete task error:", error);
+            console.error(
+                "Delete task error:",
+                error.message
+            );
 
             res.status(500).json({
-                message: "Server error"
+                message: "Unable to delete task"
             });
         }
     }
 );
 
-
-// =========================
-// AI Assistant
-// =========================
+// ===============================
+// AI Assistant - Ollama
+// ===============================
 
 app.post(
     "/api/ai/assistant",
     authenticateToken,
     async (req, res) => {
-
         try {
-
-            const { message } = req.body;
+            const {
+                message,
+                progress
+            } = req.body;
 
             if (!message || !message.trim()) {
-
                 return res.status(400).json({
                     message: "Message is required"
                 });
-
             }
 
-            const response = await openai.responses.create({
-                model: "gpt-5.6-luna",
-                instructions:
-                    "You are an AI placement preparation assistant. Help the user with DSA, coding, aptitude, SQL, interview preparation, projects, and placement preparation. Give simple, practical, beginner-friendly answers.",
-                input: message.trim()
+            const progressText = progress
+                ? JSON.stringify(progress, null, 2)
+                : "No placement progress was provided.";
+
+            console.log("AI request received");
+            console.log(
+                "User:",
+                req.user.email
+            );
+
+            console.log(
+                "Progress received:",
+                progressText
+            );
+
+            const prompt = `
+You are an AI placement preparation assistant.
+
+Help the student with:
+
+- DSA
+- Java
+- Coding Practice
+- Aptitude
+- SQL
+- DBMS
+- OOP
+- Interview Preparation
+- Projects
+- Placement preparation
+
+Give simple, practical and beginner-friendly answers.
+
+Use the student's actual placement progress
+when giving recommendations.
+
+Do not invent progress data.
+
+Student's question:
+${message.trim()}
+
+Current placement progress:
+${progressText}
+
+Based on this information,
+give a useful answer to the student.
+`;
+
+            const response = await ollama.chat({
+                model: "llama3.2:3b",
+
+                messages: [
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ]
             });
+
+            console.log(
+                "AI response received successfully"
+            );
 
             res.json({
-                reply: response.output_text
+                reply:
+                    response.message?.content ||
+                    "No response received from AI."
             });
-
         } catch (error) {
+            console.error(
+                "================================="
+            );
 
-            console.error("AI assistant error:", error);
+            console.error(
+                "OLLAMA AI ASSISTANT ERROR"
+            );
+
+            console.error(
+                "================================="
+            );
+
+            console.error(
+                "Message:",
+                error.message
+            );
+
+            console.error(
+                "Full error:",
+                error
+            );
+
+            console.error(
+                "================================="
+            );
 
             res.status(500).json({
-                message: "Unable to get AI response"
+                message:
+                    "Unable to connect to local AI. Make sure Ollama is running."
             });
         }
     }
 );
 
-
-// =========================
+// ===============================
 // Start Server
-// =========================
+// ===============================
 
-const PORT =
-    process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-
-    console.log(
-        `Server running on http://localhost:${PORT}`
-    );
-});
+app.listen(
+    PORT,
+    () => {
+        console.log(
+            `Server running on http://localhost:${PORT}`
+        );
+    }
+);

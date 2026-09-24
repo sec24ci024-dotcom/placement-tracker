@@ -406,8 +406,34 @@ function App() {
 
     try {
 
+      const progress = {
+        totalTasks,
+        completedTasks,
+        pendingTasks,
+        overallProgress,
+        categories: categories.map((category) => {
+          const total = category.tasks.length;
+          const completed = category.tasks.filter(
+            (task) => task.completed
+          ).length;
+
+          return {
+            name: category.name,
+            target: category.target,
+            total,
+            completed,
+            pending: total - completed,
+            percentage:
+              total === 0
+                ? 0
+                : Math.round((completed / total) * 100),
+          };
+        }),
+      };
+
       const data = await askAI(
         message,
+        progress,
         token
       );
 
