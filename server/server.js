@@ -27,7 +27,10 @@ mongoose
         console.log("MongoDB connected successfully");
     })
     .catch((error) => {
-        console.error("MongoDB connection error:", error.message);
+        console.error(
+            "MongoDB connection error:",
+            error.message
+        );
     });
 
 // ===============================
@@ -189,7 +192,10 @@ app.post("/api/auth/register", async (req, res) => {
             token
         });
     } catch (error) {
-        console.error("Registration error:", error.message);
+        console.error(
+            "Registration error:",
+            error.message
+        );
 
         res.status(500).json({
             message: "Server error during registration"
@@ -237,13 +243,15 @@ app.post("/api/auth/login", async (req, res) => {
                 user.password
             );
         } else {
-            passwordMatch = password === user.password;
+            passwordMatch =
+                password === user.password;
 
             if (passwordMatch) {
-                user.password = await bcrypt.hash(
-                    password,
-                    10
-                );
+                user.password =
+                    await bcrypt.hash(
+                        password,
+                        10
+                    );
 
                 await user.save();
             }
@@ -275,7 +283,10 @@ app.post("/api/auth/login", async (req, res) => {
             token
         });
     } catch (error) {
-        console.error("Login error:", error.message);
+        console.error(
+            "Login error:",
+            error.message
+        );
 
         res.status(500).json({
             message: "Server error during login"
@@ -328,7 +339,8 @@ app.post(
 
             if (!category || !name) {
                 return res.status(400).json({
-                    message: "Category and task name are required"
+                    message:
+                        "Category and task name are required"
                 });
             }
 
@@ -419,10 +431,11 @@ app.delete(
                 id
             } = req.params;
 
-            const task = await Task.findOneAndDelete({
-                _id: id,
-                userId: req.user.userId
-            });
+            const task =
+                await Task.findOneAndDelete({
+                    _id: id,
+                    userId: req.user.userId
+                });
 
             if (!task) {
                 return res.status(404).json({
@@ -431,7 +444,8 @@ app.delete(
             }
 
             res.json({
-                message: "Task deleted successfully"
+                message:
+                    "Task deleted successfully"
             });
         } catch (error) {
             console.error(
@@ -467,10 +481,17 @@ app.post(
             }
 
             const progressText = progress
-                ? JSON.stringify(progress, null, 2)
+                ? JSON.stringify(
+                      progress,
+                      null,
+                      2
+                  )
                 : "No placement progress was provided.";
 
-            console.log("AI request received");
+            console.log(
+                "AI request received"
+            );
+
             console.log(
                 "User:",
                 req.user.email
@@ -499,31 +520,38 @@ Help the student with:
 
 Give simple, practical and beginner-friendly answers.
 
-Use the student's actual placement progress
-when giving recommendations.
+IMPORTANT PROGRESS RULES:
 
-Do not invent progress data.
+1. "target" is the student's total target for that category.
+2. "total" is only the number of tasks currently created.
+3. "completed" is the number of currently created tasks that are completed.
+4. "pending" means currently created tasks that are not completed.
+5. "percentage" is progress toward the category target.
+6. Never calculate target progress using completed / total.
+7. Do not invent progress data.
 
 Student's question:
+
 ${message.trim()}
 
 Current placement progress:
+
 ${progressText}
 
-Based on this information,
-give a useful answer to the student.
+Give a useful and practical answer.
 `;
 
-            const response = await ollama.chat({
-                model: "llama3.2:3b",
+            const response =
+                await ollama.chat({
+                    model: "llama3.2:3b",
 
-                messages: [
-                    {
-                        role: "user",
-                        content: prompt
-                    }
-                ]
-            });
+                    messages: [
+                        {
+                            role: "user",
+                            content: prompt
+                        }
+                    ]
+                });
 
             console.log(
                 "AI response received successfully"
@@ -570,10 +598,175 @@ give a useful answer to the student.
 );
 
 // ===============================
+// Day 33 - AI Interview Coach
+// ===============================
+
+app.post(
+    "/api/ai/interview",
+    authenticateToken,
+    async (req, res) => {
+        try {
+            const {
+                category,
+                answer,
+                question
+            } = req.body;
+
+            if (!category) {
+                return res.status(400).json({
+                    message:
+                        "Interview category is required"
+                });
+            }
+
+            let prompt;
+
+            // Generate a new interview question
+            if (!question) {
+                prompt = `
+You are an AI technical interview coach.
+
+The student is preparing for placements.
+
+Interview category:
+${category}
+
+Generate ONE beginner-friendly interview question
+for this category.
+
+Rules:
+
+- Ask only one question.
+- Do not provide the answer.
+- Keep the question suitable for a college student.
+- If the category is DSA, ask a conceptual or
+  beginner coding interview question.
+- If the category is Java, ask a Java interview question.
+- If the category is OOP, ask an OOP interview question.
+- If the category is DBMS, ask a DBMS interview question.
+- If the category is SQL, ask an SQL interview question.
+- If the category is HR, ask an HR interview question.
+
+Return only the interview question.
+`;
+            } else {
+                // Evaluate student's answer
+                prompt = `
+You are an AI technical interview coach.
+
+Interview category:
+${category}
+
+Interview question:
+${question}
+
+Student's answer:
+${answer || "No answer provided."}
+
+Evaluate the student's answer.
+
+Give the response in this format:
+
+Score: X/10
+
+What you did well:
+- ...
+
+What you missed:
+- ...
+
+Better answer:
+...
+
+Tips:
+- ...
+
+Rules:
+
+- Be beginner-friendly.
+- Be honest but encouraging.
+- Do not invent information about the student's answer.
+- If the answer is incomplete, clearly explain what is missing.
+- Keep the evaluation practical for placement interviews.
+`;
+            }
+
+            console.log(
+                "Interview Coach request received"
+            );
+
+            console.log(
+                "User:",
+                req.user.email
+            );
+
+            console.log(
+                "Category:",
+                category
+            );
+
+            const response =
+                await ollama.chat({
+                    model: "llama3.2:3b",
+
+                    messages: [
+                        {
+                            role: "user",
+                            content: prompt
+                        }
+                    ]
+                });
+
+            console.log(
+                "Interview Coach response received"
+            );
+
+            res.json({
+                reply:
+                    response.message?.content ||
+                    "No interview response received."
+            });
+        } catch (error) {
+            console.error(
+                "================================="
+            );
+
+            console.error(
+                "INTERVIEW COACH ERROR"
+            );
+
+            console.error(
+                "================================="
+            );
+
+            console.error(
+                "Message:",
+                error.message
+            );
+
+            console.error(
+                "Full error:",
+                error
+            );
+
+            console.error(
+                "================================="
+            );
+
+            res.status(500).json({
+                message:
+                    "Unable to connect to Interview Coach AI."
+            });
+        }
+    }
+);
+
+// ===============================
 // Start Server
 // ===============================
 
-const PORT = process.env.PORT || 5000;
+const PORT =
+    process.env.PORT || 5000;
 
 app.listen(
     PORT,

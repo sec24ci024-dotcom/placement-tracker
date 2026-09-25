@@ -171,3 +171,23 @@ export function askAI(
         token
     );
 }
+
+export function interviewCoach(
+    category,
+    question,
+    answer,
+    token
+) {
+    return request(
+        "/ai/interview",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                category,
+                question,
+                answer,
+            }),
+        },
+        token
+    );
+}

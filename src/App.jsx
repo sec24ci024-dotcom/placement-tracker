@@ -9,6 +9,7 @@ import {
   updateTask,
   deleteTask as deleteTaskAPI,
   askAI,
+  interviewCoach,
 } from "./api";
 
 const initialCategories = [
@@ -67,6 +68,25 @@ function App() {
   const [aiReply, setAiReply] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+
+  // Interview Coach states
+  const [interviewCategory, setInterviewCategory] =
+    useState("Java");
+
+  const [interviewQuestion, setInterviewQuestion] =
+    useState("");
+
+  const [interviewAnswer, setInterviewAnswer] =
+    useState("");
+
+  const [interviewFeedback, setInterviewFeedback] =
+    useState("");
+
+  const [interviewLoading, setInterviewLoading] =
+    useState(false);
+
+  const [interviewError, setInterviewError] =
+    useState("");
 
   const handleSessionExpired = () => {
     logout();
@@ -393,10 +413,13 @@ function App() {
 
   // Ask AI assistant
   const handleAskAI = async () => {
+    const message =
+      aiMessage.trim();
 
-    const message = aiMessage.trim();
-
-    if (!message || aiLoading) {
+    if (
+      !message ||
+      aiLoading
+    ) {
       return;
     }
 
@@ -405,30 +428,53 @@ function App() {
     setAiReply("");
 
     try {
-
       const progress = {
         totalTasks,
         completedTasks,
         pendingTasks,
         overallProgress,
-        categories: categories.map((category) => {
-          const total = category.tasks.length;
-          const completed = category.tasks.filter(
-            (task) => task.completed
-          ).length;
 
-          return {
-            name: category.name,
-            target: category.target,
-            total,
-            completed,
-            pending: total - completed,
-            percentage:
-              total === 0
-                ? 0
-                : Math.round((completed / total) * 100),
-          };
-        }),
+        categories:
+          categories.map(
+            (category) => {
+              const total =
+                category.tasks.length;
+
+              const completed =
+                category.tasks.filter(
+                  (task) =>
+                    task.completed
+                ).length;
+
+              return {
+                name:
+                  category.name,
+
+                target:
+                  category.target,
+
+                total,
+
+                completed,
+
+                pending:
+                  total -
+                  completed,
+
+                percentage:
+                  category.target === 0
+                    ? 0
+                    : Math.min(
+                        100,
+                        Math.round(
+                          (completed /
+                            category.target) *
+                            100
+                        )
+                      ),
+              };
+            }
+          ),
       };
 
       const data = await askAI(
@@ -437,10 +483,11 @@ function App() {
         token
       );
 
-      setAiReply(data.reply || "No response received.");
-
+      setAiReply(
+        data.reply ||
+          "No response received."
+      );
     } catch (error) {
-
       console.error(
         "AI assistant error:",
         error
@@ -454,15 +501,113 @@ function App() {
       } else {
         setAiError(
           error.message ||
-          "Unable to get AI response."
+            "Unable to get AI response."
         );
       }
-
     } finally {
-
       setAiLoading(false);
     }
   };
+
+  // Start Interview Coach
+  const handleStartInterview =
+    async () => {
+      if (
+        interviewLoading
+      ) {
+        return;
+      }
+
+      setInterviewLoading(true);
+      setInterviewError("");
+      setInterviewQuestion("");
+      setInterviewAnswer("");
+      setInterviewFeedback("");
+
+      try {
+        const data =
+          await interviewCoach(
+            interviewCategory,
+            "",
+            "",
+            token
+          );
+
+        setInterviewQuestion(
+          data.reply ||
+            "No question received."
+        );
+      } catch (error) {
+        console.error(
+          "Interview Coach error:",
+          error
+        );
+
+        if (
+          error.status === 401 ||
+          error.status === 403
+        ) {
+          handleSessionExpired();
+        } else {
+          setInterviewError(
+            error.message ||
+              "Unable to start Interview Coach."
+          );
+        }
+      } finally {
+        setInterviewLoading(false);
+      }
+    };
+
+  // Submit Interview Answer
+  const handleSubmitInterview =
+    async () => {
+      if (
+        !interviewQuestion ||
+        !interviewAnswer.trim() ||
+        interviewLoading
+      ) {
+        return;
+      }
+
+      setInterviewLoading(true);
+      setInterviewError("");
+      setInterviewFeedback("");
+
+      try {
+        const data =
+          await interviewCoach(
+            interviewCategory,
+            interviewQuestion,
+            interviewAnswer.trim(),
+            token
+          );
+
+        setInterviewFeedback(
+          data.reply ||
+            "No feedback received."
+        );
+      } catch (error) {
+        console.error(
+          "Interview evaluation error:",
+          error
+        );
+
+        if (
+          error.status === 401 ||
+          error.status === 403
+        ) {
+          handleSessionExpired();
+        } else {
+          setInterviewError(
+            error.message ||
+              "Unable to evaluate your answer."
+          );
+        }
+      } finally {
+        setInterviewLoading(false);
+      }
+    };
 
   // Clear completed tasks
   const clearCompleted = async () => {
@@ -540,6 +685,10 @@ function App() {
     setFilter("all");
     setNewTasks({});
     setError("");
+
+    setInterviewQuestion("");
+    setInterviewAnswer("");
+    setInterviewFeedback("");
   };
 
   if (!user || !token) {
@@ -624,7 +773,9 @@ function App() {
 
             <div className="loading-spinner"></div>
 
-            <h2>Loading your tracker</h2>
+            <h2>
+              Loading your tracker
+            </h2>
 
             <p>
               Fetching your placement preparation tasks...
@@ -716,7 +867,9 @@ function App() {
                   placeholder="Ask something like: Give me a beginner DSA question..."
                   value={aiMessage}
                   onChange={(e) =>
-                    setAiMessage(e.target.value)
+                    setAiMessage(
+                      e.target.value
+                    )
                   }
                   onKeyDown={(e) => {
 
@@ -764,6 +917,158 @@ function App() {
                   </div>
 
                 </div>
+              )}
+
+            </section>
+
+            {/* AI Interview Coach */}
+
+            <section className="ai-assistant interview-coach">
+
+              <div className="ai-assistant-header">
+
+                <div>
+
+                  <p className="small-label">
+                    AI INTERVIEW COACH
+                  </p>
+
+                  <h2>
+                    Practice your interview
+                  </h2>
+
+                  <p>
+                    Get an interview question,
+                    answer it, and receive AI feedback.
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="interview-controls">
+
+                <select
+                  value={
+                    interviewCategory
+                  }
+                  onChange={(e) =>
+                    setInterviewCategory(
+                      e.target.value
+                    )
+                  }
+                  disabled={
+                    interviewLoading
+                  }
+                >
+
+                  <option value="Java">
+                    Java
+                  </option>
+
+                  <option value="DSA">
+                    DSA
+                  </option>
+
+                  <option value="OOP">
+                    OOP
+                  </option>
+
+                  <option value="DBMS">
+                    DBMS
+                  </option>
+
+                  <option value="SQL">
+                    SQL
+                  </option>
+
+                  <option value="HR">
+                    HR
+                  </option>
+
+                </select>
+
+                <button
+                  onClick={
+                    handleStartInterview
+                  }
+                  disabled={
+                    interviewLoading
+                  }
+                >
+                  {interviewLoading
+                    ? "Generating..."
+                    : "Start Interview"}
+                </button>
+
+              </div>
+
+              {interviewError && (
+                <div className="ai-error">
+                  {interviewError}
+                </div>
+              )}
+
+              {interviewQuestion && (
+
+                <div className="interview-question">
+
+                  <p className="small-label">
+                    INTERVIEW QUESTION
+                  </p>
+
+                  <h3>
+                    {interviewQuestion}
+                  </h3>
+
+                  <textarea
+                    placeholder="Type your answer here..."
+                    value={
+                      interviewAnswer
+                    }
+                    onChange={(e) =>
+                      setInterviewAnswer(
+                        e.target.value
+                      )
+                    }
+                    rows={6}
+                    disabled={
+                      interviewLoading
+                    }
+                  />
+
+                  <button
+                    onClick={
+                      handleSubmitInterview
+                    }
+                    disabled={
+                      interviewLoading ||
+                      !interviewAnswer.trim()
+                    }
+                  >
+                    {interviewLoading
+                      ? "Evaluating..."
+                      : "Submit Answer"}
+                  </button>
+
+                </div>
+
+              )}
+
+              {interviewFeedback && (
+
+                <div className="ai-response interview-feedback">
+
+                  <h3>
+                    Interview Feedback
+                  </h3>
+
+                  <div className="ai-response-text">
+                    {interviewFeedback}
+                  </div>
+
+                </div>
+
               )}
 
             </section>
