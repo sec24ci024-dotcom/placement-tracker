@@ -191,3 +191,25 @@ export function interviewCoach(
         token
     );
 }
+
+export function generateStudyPlan(
+    days,
+    hours,
+    focus,
+    progress,
+    token
+) {
+    return request(
+        "/ai/study-plan",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                days,
+                hours,
+                focus,
+                progress
+            })
+        },
+        token
+    );
+}

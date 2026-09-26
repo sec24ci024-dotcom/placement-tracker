@@ -762,6 +762,185 @@ Rules:
 );
 
 // ===============================
+// Day 34 - AI Study Plan
+// ===============================
+
+app.post(
+    "/api/ai/study-plan",
+    authenticateToken,
+    async (req, res) => {
+        try {
+            const {
+                days,
+                hours,
+                focus,
+                progress
+            } = req.body;
+
+            if (!days || !hours) {
+                return res.status(400).json({
+                    message:
+                        "Number of days and study hours are required"
+                });
+            }
+
+            const progressText = progress
+                ? JSON.stringify(
+                      progress,
+                      null,
+                      2
+                  )
+                : "No placement progress was provided.";
+
+            console.log(
+                "Study Plan request received"
+            );
+
+            console.log(
+                "User:",
+                req.user.email
+            );
+
+            console.log(
+                "Days:",
+                days
+            );
+
+            console.log(
+                "Hours:",
+                hours
+            );
+
+            console.log(
+                "Focus:",
+                focus || "General placement preparation"
+            );
+
+            console.log(
+                "Progress received:",
+                progressText
+            );
+
+            const prompt = `
+You are an AI placement preparation study planner.
+
+Create a practical study plan for a college student
+preparing for software placements.
+
+Student study duration:
+${days} days
+
+Available study time:
+${hours} hours per day
+
+Student focus:
+${focus || "General placement preparation"}
+
+Current placement progress:
+${progressText}
+
+IMPORTANT PROGRESS RULES:
+
+1. Use only the placement progress provided.
+2. "target" is the student's total target for that category.
+3. "total" is the number of tasks currently created.
+4. "completed" is the number of currently created tasks completed.
+5. "pending" is the number of currently created tasks not completed.
+6. "percentage" represents progress toward the category target.
+7. Never calculate target progress using completed / total.
+8. Do not invent completed tasks.
+9. Do not assume uncreated tasks are completed.
+10. Identify areas that need more attention based on the provided progress.
+
+Create a day-by-day study plan.
+
+For each day include:
+
+Day X:
+- Topics:
+- Tasks:
+- Practice:
+- Time:
+
+Keep the plan:
+- Beginner-friendly
+- Practical
+- Suitable for placement preparation
+- Focused on DSA, Java, SQL, DBMS, OOP,
+  Aptitude, Interview Preparation and Projects
+  when relevant
+- Balanced between learning and practice
+
+Also include:
+1. Main priorities
+2. Topics that should be revised
+3. Coding practice recommendations
+4. Interview preparation recommendations
+
+Do not invent the student's current progress.
+
+Return only the study plan.
+`;
+
+            const response =
+                await ollama.chat({
+                    model: "llama3.2:3b",
+
+                    messages: [
+                        {
+                            role: "user",
+                            content: prompt
+                        }
+                    ]
+                });
+
+            console.log(
+                "Study Plan response received"
+            );
+
+            res.json({
+                reply:
+                    response.message?.content ||
+                    "No study plan received from AI."
+            });
+
+        } catch (error) {
+
+            console.error(
+                "================================="
+            );
+
+            console.error(
+                "STUDY PLAN AI ERROR"
+            );
+
+            console.error(
+                "================================="
+            );
+
+            console.error(
+                "Message:",
+                error.message
+            );
+
+            console.error(
+                "Full error:",
+                error
+            );
+
+            console.error(
+                "================================="
+            );
+
+            res.status(500).json({
+                message:
+                    "Unable to generate study plan. Make sure Ollama is running."
+            });
+        }
+    }
+);
+
+// ===============================
 // Start Server
 // ===============================
 
@@ -776,3 +955,4 @@ app.listen(
         );
     }
 );
+

@@ -10,6 +10,7 @@ import {
   deleteTask as deleteTaskAPI,
   askAI,
   interviewCoach,
+  generateStudyPlan,
 } from "./api";
 
 const initialCategories = [
@@ -88,6 +89,18 @@ function App() {
   const [interviewError, setInterviewError] =
     useState("");
 
+  // AI Study Plan states
+  const [studyDays, setStudyDays] = useState("7");
+  const [studyHours, setStudyHours] = useState("2");
+  const [studyFocus, setStudyFocus] = useState(
+    "DSA and Interview Preparation"
+  );
+  const [studyPlan, setStudyPlan] = useState("");
+  const [studyPlanLoading, setStudyPlanLoading] =
+    useState(false);
+  const [studyPlanError, setStudyPlanError] =
+    useState("");
+
   const handleSessionExpired = () => {
     logout();
 
@@ -95,6 +108,8 @@ function App() {
     setSearch("");
     setFilter("all");
     setNewTasks({});
+    setStudyPlan("");
+    setStudyPlanError("");
 
     setError(
       "Your session has expired. Please login again."
@@ -609,6 +624,89 @@ function App() {
       }
     };
 
+  // Generate AI Study Plan
+  const handleGenerateStudyPlan = async () => {
+    if (
+      studyPlanLoading ||
+      !studyDays ||
+      !studyHours
+    ) {
+      return;
+    }
+
+    setStudyPlanLoading(true);
+    setStudyPlanError("");
+    setStudyPlan("");
+
+    try {
+      const progress = {
+        totalTasks,
+        completedTasks,
+        pendingTasks,
+        overallProgress,
+        categories: categories.map((category) => {
+          const total = category.tasks.length;
+
+          const completed =
+            category.tasks.filter(
+              (task) => task.completed
+            ).length;
+
+          return {
+            name: category.name,
+            target: category.target,
+            total,
+            completed,
+            pending: total - completed,
+            percentage:
+              category.target === 0
+                ? 0
+                : Math.min(
+                    100,
+                    Math.round(
+                      (completed /
+                        category.target) *
+                        100
+                    )
+                  ),
+          };
+        }),
+      };
+
+      const data = await generateStudyPlan(
+        studyDays,
+        studyHours,
+        studyFocus,
+        progress,
+        token
+      );
+
+      setStudyPlan(
+        data.reply ||
+          "No study plan received."
+      );
+    } catch (error) {
+      console.error(
+        "Study Plan error:",
+        error
+      );
+
+      if (
+        error.status === 401 ||
+        error.status === 403
+      ) {
+        handleSessionExpired();
+      } else {
+        setStudyPlanError(
+          error.message ||
+            "Unable to generate study plan."
+        );
+      }
+    } finally {
+      setStudyPlanLoading(false);
+    }
+  };
+
   // Clear completed tasks
   const clearCompleted = async () => {
     const completedTaskIds =
@@ -685,6 +783,8 @@ function App() {
     setFilter("all");
     setNewTasks({});
     setError("");
+    setStudyPlan("");
+    setStudyPlanError("");
 
     setInterviewQuestion("");
     setInterviewAnswer("");
@@ -916,6 +1016,110 @@ function App() {
                     {aiReply}
                   </div>
 
+                </div>
+              )}
+
+            </section>
+
+            {/* AI Study Plan */}
+
+            <section className="ai-assistant study-plan">
+
+              <div className="ai-assistant-header">
+
+                <div>
+
+                  <p className="small-label">
+                    AI STUDY PLAN
+                  </p>
+
+                  <h2>
+                    Create your placement study plan
+                  </h2>
+
+                  <p>
+                    Generate a personalized day-by-day
+                    plan using your current placement progress.
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="interview-controls">
+
+                <select
+                  value={studyDays}
+                  onChange={(e) =>
+                    setStudyDays(e.target.value)
+                  }
+                  disabled={studyPlanLoading}
+                >
+                  <option value="3">3 Days</option>
+                  <option value="5">5 Days</option>
+                  <option value="7">7 Days</option>
+                  <option value="14">14 Days</option>
+                  <option value="30">30 Days</option>
+                </select>
+
+                <select
+                  value={studyHours}
+                  onChange={(e) =>
+                    setStudyHours(e.target.value)
+                  }
+                  disabled={studyPlanLoading}
+                >
+                  <option value="1">1 Hour / Day</option>
+                  <option value="2">2 Hours / Day</option>
+                  <option value="3">3 Hours / Day</option>
+                  <option value="4">4 Hours / Day</option>
+                  <option value="5">5 Hours / Day</option>
+                </select>
+
+              </div>
+
+              <div className="ai-assistant-input">
+
+                <input
+                  type="text"
+                  placeholder="What do you want to focus on?"
+                  value={studyFocus}
+                  onChange={(e) =>
+                    setStudyFocus(e.target.value)
+                  }
+                  disabled={studyPlanLoading}
+                />
+
+                <button
+                  onClick={handleGenerateStudyPlan}
+                  disabled={
+                    studyPlanLoading ||
+                    !studyDays ||
+                    !studyHours
+                  }
+                >
+                  {studyPlanLoading
+                    ? "Generating..."
+                    : "Generate Plan"}
+                </button>
+
+              </div>
+
+              {studyPlanError && (
+                <div className="ai-error">
+                  {studyPlanError}
+                </div>
+              )}
+
+              {studyPlan && (
+                <div className="ai-response">
+                  <h3>
+                    Your AI Study Plan
+                  </h3>
+
+                  <div className="ai-response-text">
+                    {studyPlan}
+                  </div>
                 </div>
               )}
 

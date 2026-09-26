@@ -1094,3 +1094,181 @@ footer {
         font-size: 17px;
     }
 }
+/* ================================
+   AI STUDY PLAN
+================================ */
+
+.study-plan {
+    margin-top: 24px;
+    position: relative;
+    overflow: hidden;
+    background:
+        linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.study-plan::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 5px;
+    height: 100%;
+    background: linear-gradient(
+        180deg,
+        #2563eb,
+        #60a5fa
+    );
+}
+
+.study-plan .ai-assistant-header {
+    padding-left: 4px;
+}
+
+.study-plan .ai-assistant-header h2 {
+    color: #172033;
+}
+
+.study-plan-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr auto;
+    column-gap: 20px;
+    row-gap: 20px;
+    align-items: end;
+    margin-top: 20px;
+    margin-bottom: 32px;
+}
+
+.study-plan-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.study-plan-field label {
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.study-plan-field select,
+.study-plan-field input {
+    width: 100%;
+    min-height: 46px;
+    padding: 0 13px;
+    border: 1px solid #dbe3ef;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #1e293b;
+    outline: none;
+    transition: 0.2s ease;
+}
+
+.study-plan-field select {
+    cursor: pointer;
+}
+
+.study-plan-field select:focus,
+.study-plan-field input:focus {
+    border-color: #2563eb;
+    box-shadow:
+        0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.study-plan-controls > button {
+    min-height: 46px;
+    margin-left: 4px;
+    padding: 0 20px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(
+        135deg,
+        #2563eb,
+        #1d4ed8
+    );
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.study-plan-controls > button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow:
+        0 8px 18px rgba(37, 99, 235, 0.22);
+}
+
+.study-plan-controls > button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.study-plan .ai-error {
+    margin-top: 16px;
+}
+
+.study-plan .ai-response {
+    margin-top: 0;
+    background: #ffffff;
+    border: 1px solid #dbeafe;
+    box-shadow:
+        0 5px 18px rgba(37, 99, 235, 0.05);
+}
+
+.study-plan .ai-response h3 {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    color: #1d4ed8;
+}
+
+.study-plan .ai-response h3::before {
+    content: "✦";
+    font-size: 16px;
+}
+
+.study-plan .ai-response-text {
+    line-height: 1.8;
+}
+
+/* Study plan mobile layout */
+
+@media (max-width: 900px) {
+    .study-plan-controls {
+        grid-template-columns: 1fr 1fr;
+        column-gap: 16px;
+        margin-bottom: 28px;
+    }
+
+    .study-plan-field:nth-child(3) {
+        grid-column: 1 / -1;
+    }
+
+    .study-plan-controls > button {
+        width: 100%;
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 550px) {
+    .study-plan {
+        padding: 18px;
+    }
+
+    .study-plan-controls {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin-bottom: 24px;
+    }
+
+    .study-plan-field:nth-child(3) {
+        grid-column: auto;
+    }
+
+    .study-plan-controls > button {
+        width: 100%;
+        margin-left: 0;
+    }
+}
