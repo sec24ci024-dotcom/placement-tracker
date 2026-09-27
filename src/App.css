@@ -1220,7 +1220,7 @@ footer {
 .study-plan .ai-response h3 {
     display: flex;
     align-items: center;
-    gap: 32px;
+    gap: 8px;
     color: #1d4ed8;
 }
 
