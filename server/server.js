@@ -17,9 +17,61 @@ const ollama = new Ollama({
     host: "http://127.0.0.1:11434"
 });
 
-// ===============================
-// MongoDB Connection
-// ===============================
+async function generateAIResponse(prompt) {
+    if (process.env.GROQ_API_KEY) {
+        const response = await fetch(
+            "https://api.groq.com/openai/v1/chat/completions",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization:
+                        `Bearer ${process.env.GROQ_API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: "openai/gpt-oss-20b",
+                    messages: [
+                        {
+                            role: "user",
+                            content: prompt
+                        }
+                    ],
+                    temperature: 0.4,
+                    max_completion_tokens: 2048
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.error?.message ||
+                `Groq API request failed with status ${response.status}`
+            );
+        }
+
+        return (
+            data.choices?.[0]?.message?.content ||
+            "No response received from AI."
+        );
+    }
+
+    const response = await ollama.chat({
+        model: "llama3.2:3b",
+        messages: [
+            {
+                role: "user",
+                content: prompt
+            }
+        ]
+    });
+
+    return (
+        response.message?.content ||
+        "No response received from AI."
+    );
+}
 
 mongoose
     .connect(process.env.MONGO_URI)
@@ -33,23 +85,17 @@ mongoose
         );
     });
 
-// ===============================
-// User Schema
-// ===============================
-
 const userSchema = new mongoose.Schema(
     {
         name: {
             type: String,
             required: true
         },
-
         email: {
             type: String,
             required: true,
             unique: true
         },
-
         password: {
             type: String,
             required: true
@@ -62,10 +108,6 @@ const userSchema = new mongoose.Schema(
 
 const User = mongoose.model("User", userSchema);
 
-// ===============================
-// Task Schema
-// ===============================
-
 const taskSchema = new mongoose.Schema(
     {
         userId: {
@@ -73,17 +115,14 @@ const taskSchema = new mongoose.Schema(
             ref: "User",
             required: true
         },
-
         category: {
             type: String,
             required: true
         },
-
         name: {
             type: String,
             required: true
         },
-
         completed: {
             type: Boolean,
             default: false
@@ -95,10 +134,6 @@ const taskSchema = new mongoose.Schema(
 );
 
 const Task = mongoose.model("Task", taskSchema);
-
-// ===============================
-// JWT Authentication
-// ===============================
 
 function authenticateToken(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -132,10 +167,6 @@ function authenticateToken(req, res, next) {
         });
     }
 }
-
-// ===============================
-// Register
-// ===============================
 
 app.post("/api/auth/register", async (req, res) => {
     try {
@@ -202,10 +233,6 @@ app.post("/api/auth/register", async (req, res) => {
         });
     }
 });
-
-// ===============================
-// Login
-// ===============================
 
 app.post("/api/auth/login", async (req, res) => {
     try {
@@ -294,10 +321,6 @@ app.post("/api/auth/login", async (req, res) => {
     }
 });
 
-// ===============================
-// Get Tasks
-// ===============================
-
 app.get(
     "/api/tasks",
     authenticateToken,
@@ -322,10 +345,6 @@ app.get(
         }
     }
 );
-
-// ===============================
-// Add Task
-// ===============================
 
 app.post(
     "/api/tasks",
@@ -364,10 +383,6 @@ app.post(
         }
     }
 );
-
-// ===============================
-// Update Task
-// ===============================
 
 app.put(
     "/api/tasks/:id",
@@ -418,10 +433,6 @@ app.put(
     }
 );
 
-// ===============================
-// Delete Task
-// ===============================
-
 app.delete(
     "/api/tasks/:id",
     authenticateToken,
@@ -459,10 +470,6 @@ app.delete(
         }
     }
 );
-
-// ===============================
-// AI Assistant - Ollama
-// ===============================
 
 app.post(
     "/api/ai/assistant",
@@ -542,64 +549,28 @@ Give a useful and practical answer.
 `;
 
             const response =
-                await ollama.chat({
-                    model: "llama3.2:3b",
-
-                    messages: [
-                        {
-                            role: "user",
-                            content: prompt
-                        }
-                    ]
-                });
+                await generateAIResponse(prompt);
 
             console.log(
                 "AI response received successfully"
             );
 
             res.json({
-                reply:
-                    response.message?.content ||
-                    "No response received from AI."
+                reply: response
             });
         } catch (error) {
             console.error(
-                "================================="
-            );
-
-            console.error(
-                "OLLAMA AI ASSISTANT ERROR"
-            );
-
-            console.error(
-                "================================="
-            );
-
-            console.error(
-                "Message:",
+                "OLLAMA/GROQ AI ASSISTANT ERROR:",
                 error.message
-            );
-
-            console.error(
-                "Full error:",
-                error
-            );
-
-            console.error(
-                "================================="
             );
 
             res.status(500).json({
                 message:
-                    "Unable to connect to local AI. Make sure Ollama is running."
+                    "Unable to generate an AI response. Check the AI provider configuration."
             });
         }
     }
 );
-
-// ===============================
-// Day 33 - AI Interview Coach
-// ===============================
 
 app.post(
     "/api/ai/interview",
@@ -621,7 +592,6 @@ app.post(
 
             let prompt;
 
-            // Generate a new interview question
             if (!question) {
                 prompt = `
 You are an AI technical interview coach.
@@ -639,8 +609,7 @@ Rules:
 - Ask only one question.
 - Do not provide the answer.
 - Keep the question suitable for a college student.
-- If the category is DSA, ask a conceptual or
-  beginner coding interview question.
+- If the category is DSA, ask a conceptual or beginner coding interview question.
 - If the category is Java, ask a Java interview question.
 - If the category is OOP, ask an OOP interview question.
 - If the category is DBMS, ask a DBMS interview question.
@@ -650,7 +619,6 @@ Rules:
 Return only the interview question.
 `;
             } else {
-                // Evaluate student's answer
                 prompt = `
 You are an AI technical interview coach.
 
@@ -706,64 +674,28 @@ Rules:
             );
 
             const response =
-                await ollama.chat({
-                    model: "llama3.2:3b",
-
-                    messages: [
-                        {
-                            role: "user",
-                            content: prompt
-                        }
-                    ]
-                });
+                await generateAIResponse(prompt);
 
             console.log(
                 "Interview Coach response received"
             );
 
             res.json({
-                reply:
-                    response.message?.content ||
-                    "No interview response received."
+                reply: response
             });
         } catch (error) {
             console.error(
-                "================================="
-            );
-
-            console.error(
-                "INTERVIEW COACH ERROR"
-            );
-
-            console.error(
-                "================================="
-            );
-
-            console.error(
-                "Message:",
+                "INTERVIEW COACH ERROR:",
                 error.message
-            );
-
-            console.error(
-                "Full error:",
-                error
-            );
-
-            console.error(
-                "================================="
             );
 
             res.status(500).json({
                 message:
-                    "Unable to connect to Interview Coach AI."
+                    "Unable to generate an Interview Coach response. Check the AI provider configuration."
             });
         }
     }
 );
-
-// ===============================
-// Day 34 - AI Study Plan
-// ===============================
 
 app.post(
     "/api/ai/study-plan",
@@ -863,6 +795,7 @@ Day X:
 - Time:
 
 Keep the plan:
+
 - Beginner-friendly
 - Practical
 - Suitable for placement preparation
@@ -872,6 +805,7 @@ Keep the plan:
 - Balanced between learning and practice
 
 Also include:
+
 1. Main priorities
 2. Topics that should be revised
 3. Coding practice recommendations
@@ -883,66 +817,28 @@ Return only the study plan.
 `;
 
             const response =
-                await ollama.chat({
-                    model: "llama3.2:3b",
-
-                    messages: [
-                        {
-                            role: "user",
-                            content: prompt
-                        }
-                    ]
-                });
+                await generateAIResponse(prompt);
 
             console.log(
                 "Study Plan response received"
             );
 
             res.json({
-                reply:
-                    response.message?.content ||
-                    "No study plan received from AI."
+                reply: response
             });
-
         } catch (error) {
-
             console.error(
-                "================================="
-            );
-
-            console.error(
-                "STUDY PLAN AI ERROR"
-            );
-
-            console.error(
-                "================================="
-            );
-
-            console.error(
-                "Message:",
+                "STUDY PLAN AI ERROR:",
                 error.message
-            );
-
-            console.error(
-                "Full error:",
-                error
-            );
-
-            console.error(
-                "================================="
             );
 
             res.status(500).json({
                 message:
-                    "Unable to generate study plan. Make sure Ollama is running."
+                    "Unable to generate study plan. Check the AI provider configuration."
             });
         }
     }
 );
-
-// ===============================
-// Start Server
-// ===============================
 
 const PORT =
     process.env.PORT || 5000;
@@ -955,4 +851,3 @@ app.listen(
         );
     }
 );
-
